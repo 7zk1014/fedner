@@ -1,0 +1,25 @@
+# Configuration for Federated NER Experiments
+
+model_name: microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract
+
+data:
+  train_path: train.bio
+  dev_path: dev.bio
+  test_path: test.bio
+
+training:
+  algorithm: FedAvg          # Options: FedAvg, FedAdam, FedKD, Centralized
+  num_clients: 5
+  rounds: 5
+  local_epochs: 2
+
+hyperparameters:
+  learning_rate: 3e-5
+  train_batch_size: 32
+  eval_batch_size: 32
+  max_seq_length: 128
+
+misc:
+  seed: 42
+  device: auto               # Options: auto, cpu, cuda
+  save_results: true
