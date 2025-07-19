@@ -79,9 +79,8 @@ seed: 42
 - `FedKD` is a placeholder; future work can implement distillation logic.
 - Results are saved in timestamped folders under `results/` to avoid overwriting.
 
----
 
-For any questions or issues, feel free to reach out!---
+For any questions or issues, feel free to reach out!
 
 ## 📊 Comparing Multiple Algorithms
 
