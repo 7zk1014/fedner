@@ -3,6 +3,7 @@ import copy
 from transformers import Trainer, TrainingArguments
 from datasets import Dataset
 from utils.evaluate import align_labels_with_tokens
+from aggregators.fedavg import average_weights
 
 class FedAvgTrainer:
     def __init__(self, model_init, tokenizer, label_list, device="cpu", epochs=1):
@@ -39,13 +40,6 @@ class FedAvgTrainer:
         trainer.train()
         return model
 
-    def average_models(self, models):
-        new_model = copy.deepcopy(models[0])
-        state_dicts = [m.state_dict() for m in models]
-        for key in new_model.state_dict().keys():
-            avg = torch.mean(torch.stack([sd[key] for sd in state_dicts], dim=0), dim=0)
-            new_model.state_dict()[key].copy_(avg)
-        return new_model
 
     def train_round(self, global_model, clients_data):
         client_models = []
@@ -54,5 +48,5 @@ class FedAvgTrainer:
             model.load_state_dict(copy.deepcopy(global_model.state_dict()))
             model = self.train_on_client(model, data)
             client_models.append(model.cpu())
-        global_model = self.average_models(client_models).to(self.device)
+        global_model = average_weights(client_models).to(self.device)
         return global_model
