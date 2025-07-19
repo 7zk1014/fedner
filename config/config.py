@@ -16,11 +16,12 @@ class Config:
         self.rounds = cfg["training"]["rounds"]
         self.local_epochs = cfg["training"]["local_epochs"]
 
-        self.learning_rate = cfg["hyperparameters"]["learning_rate"]
+        self.learning_rate = float(cfg["hyperparameters"]["learning_rate"])
+        self.lr_scheduler_type = cfg["hyperparameters"].get("lr_scheduler_type", "linear")
         self.train_batch_size = cfg["hyperparameters"]["train_batch_size"]
         self.eval_batch_size = cfg["hyperparameters"]["eval_batch_size"]
         self.max_seq_length = cfg["hyperparameters"]["max_seq_length"]
-
+        
         self.seed = cfg["misc"].get("seed", 42)
         self.device_mode = cfg["misc"].get("device", "auto")
         self.save_results = cfg["misc"].get("save_results", True)
