@@ -11,7 +11,9 @@ def get_client_model(global_model, device):
     return copy.deepcopy(global_model).to(device)
 
 
-def train_local_model(model, tokenizer, train_examples, label_list, device, epochs, prox_mu=0.0, global_weights=None):
+def train_local_model(model, tokenizer, train_examples, label_list, device, epochs,
+                      batch_size=32, learning_rate=3e-5, scheduler_type="constant",
+                      prox_mu=0.01, global_weights=None,**kwargs):
     """Train a model on the client's data with optional FedProx regularization."""
     label2id = {l: i for i, l in enumerate(label_list)}
 
@@ -34,7 +36,7 @@ def train_local_model(model, tokenizer, train_examples, label_list, device, epoc
             self.prox_mu = prox_mu
             self.global_weights = global_weights
 
-        def compute_loss(self, model, inputs, return_outputs=False):
+        def compute_loss(self, model, inputs, return_outputs=False,**kwargs):
             outputs = model(**inputs)
             loss = outputs.loss
             if self.global_weights is not None and self.prox_mu > 0:
@@ -42,45 +44,60 @@ def train_local_model(model, tokenizer, train_examples, label_list, device, epoc
                 for name, param in model.named_parameters():
                     if name in self.global_weights:
                         prox_term += ((param - self.global_weights[name].to(param.device)) ** 2).sum()
-                loss = loss + 0.5 * self.prox_mu * prox_term
+                loss += 0.5 * self.prox_mu * prox_term
             return (loss, outputs) if return_outputs else loss
 
     args = TrainingArguments(
-        output_dir="./tmp",
-        per_device_train_batch_size=32,
+        per_device_train_batch_size=batch_size,
         num_train_epochs=epochs,
+        learning_rate=learning_rate,
+        lr_scheduler_type=scheduler_type,
         logging_strategy="no",
         save_strategy="no",
         report_to="none",
     )
-    prox_trainer = ProxTrainer(prox_mu, global_weights, model=model, args=args, train_dataset=dataset, tokenizer=tokenizer)
-    prox_trainer.train()
+
+    trainer = ProxTrainer(
+        prox_mu=prox_mu,
+        global_weights=global_weights,
+        model=model,
+        args=args,
+        train_dataset=dataset,
+        tokenizer=tokenizer,
+    )
+    trainer.train()
     return model
 
+
 class FedProxTrainer(BaseFederatedTrainer):
-    def __init__(self, model_init, tokenizer, label_list, device="cpu", epochs=1, mu=0.01):
+    def __init__(self, model_init, tokenizer, label_list, device="cpu",
+                 epochs=1, mu=0.01, batch_size=32, learning_rate=3e-5, scheduler_type="constant"):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.mu = mu
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.scheduler_type = scheduler_type
 
     def train_round(self, global_model, clients_data):
         global_weights = copy.deepcopy(global_model.state_dict())
         client_models = []
 
-        for i, client_data in enumerate(clients_data):
+        for client_data in clients_data:
             client_model = get_client_model(global_model, self.device)
             trained_model = train_local_model(
-                client_model,
-                self.tokenizer,
-                client_data,
-                self.label_list,
-                self.device,
-                self.epochs,
+                model=client_model,
+                tokenizer=self.tokenizer,
+                train_examples=client_data,
+                label_list=self.label_list,
+                device=self.device,
+                epochs=self.epochs,
+                batch_size=self.batch_size,
+                learning_rate=self.learning_rate,
+                scheduler_type=self.scheduler_type,
                 prox_mu=self.mu,
                 global_weights=global_weights
             )
             client_models.append(trained_model.to("cpu"))
 
-        # 聚合模型
-        new_global = self.aggregate(client_models)
-        return new_global
+        return self.aggregate(client_models)  # 来自 BaseFederatedTrainer

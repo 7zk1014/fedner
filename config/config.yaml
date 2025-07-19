@@ -3,9 +3,9 @@
 model_name: microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract
 
 data:
-  train_path: train.bio
-  dev_path: dev.bio
-  test_path: test.bio
+  train_path: ./data_set/train.bio
+  dev_path: ./data_set/dev.bio
+  test_path: ./data_set/test.bio
 
 training:
   algorithm: FedAvg          # Options: FedAvg, FedAdam, FedKD, Centralized
@@ -18,7 +18,7 @@ hyperparameters:
   train_batch_size: 32
   eval_batch_size: 32
   max_seq_length: 128
-
+  lr_scheduler_type: constant 
 misc:
   seed: 42
   device: auto               # Options: auto, cpu, cuda
