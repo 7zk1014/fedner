@@ -135,7 +135,7 @@ def main():
     label_set = set()
     for client_sents in client_train_sents:
         for sent in client_sents:
-            label_set.update([lbl.split('-')[-1] for lbl in sent['labels'] if lbl != 'O'])
+            label_set.update(sent["labels"])  # include 'O', 'B-*', 'I-*'
     label_list = sorted(label_set)
 
     tokenizer, _ = load_pubmedbert_model(cfg.model_name, label_list)
