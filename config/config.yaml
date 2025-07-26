@@ -3,9 +3,13 @@
 model_name: microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract
 
 data:
-  train_path: ./data_set/train.bio
-  dev_path: ./data_set/dev.bio
-  test_path: ./data_set/test.bio
+data:
+  pubtator_path: ./data_set/corpus_pubtator.txt               
+  trng_pmids_path: ./data_set/corpus_pubtator_pmids_trng.txt   
+  dev_pmids_path:   ./data_set/corpus_pubtator_pmids_dev.txt    
+  test_pmids_path:  ./data_set/corpus_pubtator_pmids_test.txt   
+  partition_strategy: "iid"     
+  noniid_alpha: 0.5                
 
 training:
   algorithm: FedAvg          # Options: FedAvg, FedAdam, FedKD, Centralized
