@@ -55,26 +55,47 @@ def split_data_docs(dataset, num_clients, strategy='iid', alpha=0.5):
         random.shuffle(dataset)
         shards = np.array_split(dataset, num_clients)
         return {i: list(shards[i]) for i in range(num_clients)}
-    all_labels = set(l for d in dataset for l in d['label_counts'])
-    client_indices = {i: [] for i in range(num_clients)}
+    # Non-IID partition via Dirichlet distribution. Each document should
+    # appear in exactly one client's list. For every label we sample a
+    # Dirichlet proportion across clients and allocate the corresponding
+    # number of documents with that label. Documents that have already been
+    # assigned by a previous label are skipped to avoid duplicates.
+    all_labels = sorted({l for d in dataset for l in d['label_counts']})
+    client_docs = {i: [] for i in range(num_clients)}
+    assigned = set()
+
     for label in all_labels:
-        idxs = [i for i,d in enumerate(dataset) if d['label_counts'].get(label,0)>0]
+        # Indices of docs containing this label
+        idxs = [i for i, d in enumerate(dataset) if d['label_counts'].get(label, 0) > 0]
         if not idxs:
             continue
-        props = np.random.dirichlet([alpha]*num_clients)
+        random.shuffle(idxs)
+
+        # Dirichlet draw to determine how many documents per client
+        props = np.random.dirichlet([alpha] * num_clients)
         counts = (props * len(idxs)).astype(int)
         while counts.sum() < len(idxs):
             counts[np.argmax(props)] += 1
+
         start = 0
         for cid, cnt in enumerate(counts):
-            for j in idxs[start:start+cnt]:
-                client_indices[cid].append(j)
-            start += cnt
-    out = {}
-    for cid, idxs in client_indices.items():
-        unique = sorted(set(idxs))
-        out[cid] = [dataset[i] for i in unique]
-    return out
+            taken = 0
+            while taken < cnt and start < len(idxs):
+                idx = idxs[start]
+                start += 1
+                if idx in assigned:
+                    continue
+                client_docs[cid].append(dataset[idx])
+                assigned.add(idx)
+                taken += 1
+
+    # Any documents not assigned by the above procedure (e.g., without labels)
+    # are distributed round-robin to keep dataset sizes consistent.
+    unassigned = [dataset[i] for i in range(len(dataset)) if i not in assigned]
+    for i, doc in enumerate(unassigned):
+        client_docs[i % num_clients].append(doc)
+
+    return client_docs
 
 # 5. Flatten document-level to sentence-level samples via annotations
 # Each sentence dict: {'tokens': [...], 'labels': [...]} 
