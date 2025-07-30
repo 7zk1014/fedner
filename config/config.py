@@ -9,17 +9,16 @@ class Config:
         # 模型名称
         self.model_name = cfg.get("model_name")
 
-        # 数据路径 (PubTator 格式)
+        # 数据路径 (PubTator 格式) 与切分策略
         data_cfg = cfg.get("data", {})
         self.pubtator_path   = data_cfg.get("pubtator_path")
         self.trng_pmids_path = data_cfg.get("trng_pmids_path")
         self.dev_pmids_path  = data_cfg.get("dev_pmids_path")
         self.test_pmids_path = data_cfg.get("test_pmids_path")
 
-        # 数据切分策略
-        split_cfg = cfg.get("data_split", {})
-        self.partition_strategy = split_cfg.get("partition_strategy", "iid")
-        self.noniid_alpha       = float(split_cfg.get("noniid_alpha", 0.5))
+        # 数据切分策略 (从 data 部分读取)
+        self.partition_strategy = data_cfg.get("partition_strategy", "iid")
+        self.noniid_alpha       = float(data_cfg.get("noniid_alpha", 0.5))
 
         # 联邦学习设置
         federated_cfg = cfg.get("training", {})
