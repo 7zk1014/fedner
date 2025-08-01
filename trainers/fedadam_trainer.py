@@ -28,12 +28,12 @@ def subsample_data(examples, sample_size=200):
 
 class FedAdamTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
-                 epochs=2, learning_rate=5e-5, scheduler_type="constant",
+                 epochs=2, learning_rate=5e-5, lr_scheduler_type="constant",
                  batch_size=32, server_lr=0.01, train_last_n=4, sample_size=200):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.scheduler_type = scheduler_type
+        self.lr_scheduler_type = lr_scheduler_type
         self.batch_size = batch_size
         self.server_lr = server_lr
         self.train_last_n = train_last_n
@@ -71,7 +71,7 @@ class FedAdamTrainer(BaseFederatedTrainer):
             save_strategy="no",
             report_to="none",
             learning_rate=self.learning_rate,
-            lr_scheduler_type=self.scheduler_type,
+            lr_scheduler_type=self.lr_scheduler_type,
             fp16=True
         )
         trainer = Trainer(

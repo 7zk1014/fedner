@@ -25,7 +25,7 @@ def get_client_model(global_model, device):
 
 def train_local_model(
     model, tokenizer, train_examples, label_list, device,
-    epochs, batch_size, learning_rate, scheduler_type,
+    epochs, batch_size, learning_rate, lr_scheduler_type,
     prox_mu, global_weights, trainable_layers=2, sample_size=200
 ):
     label2id = {l: i for i, l in enumerate(label_list)}
@@ -70,7 +70,7 @@ def train_local_model(
         per_device_train_batch_size=batch_size,
         num_train_epochs=epochs,
         learning_rate=learning_rate,
-        lr_scheduler_type=scheduler_type,
+        lr_scheduler_type=lr_scheduler_type,
         logging_strategy="no",
         save_strategy="no",
         report_to="none",
@@ -91,13 +91,13 @@ def train_local_model(
 class FedProxTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
                  epochs=1, mu=0.1, batch_size=32, learning_rate=3e-5,
-                 scheduler_type="constant", trainable_layers=4, sample_size=200):
+                 lr_scheduler_type="constant", trainable_layers=4, sample_size=200):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.mu = mu
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.scheduler_type = scheduler_type
+        self.lr_scheduler_type = lr_scheduler_type
         self.trainable_layers = trainable_layers
         self.sample_size = sample_size
 
@@ -115,7 +115,7 @@ class FedProxTrainer(BaseFederatedTrainer):
                 epochs=self.epochs,
                 batch_size=self.batch_size,
                 learning_rate=self.learning_rate,
-                scheduler_type=self.scheduler_type,
+                lr_scheduler_type=self.lr_scheduler_type,
                 prox_mu=self.mu,
                 global_weights=global_weights,
                 trainable_layers=self.trainable_layers,

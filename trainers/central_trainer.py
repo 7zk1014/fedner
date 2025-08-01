@@ -10,7 +10,7 @@ def centralized_train(model,
                       device="cpu",
                       epochs=10,
                       learning_rate=3e-5,
-                      scheduler_type="constant",
+                      lr_scheduler_type="constant",
                       batch_size=32):
 
     label2id = {label: i for i, label in enumerate(label_list)}
@@ -32,7 +32,7 @@ def centralized_train(model,
         per_device_train_batch_size=batch_size,
         num_train_epochs=epochs,
         learning_rate=learning_rate,
-        lr_scheduler_type=scheduler_type,
+        lr_scheduler_type=lr_scheduler_type,
         logging_strategy="epoch",
         save_strategy="no",
         report_to="none"

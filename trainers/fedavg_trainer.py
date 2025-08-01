@@ -29,11 +29,11 @@ def subsample_data(examples, sample_size=200):
 
 class FedAvgTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
-                 epochs=1, learning_rate=3e-5, scheduler_type="constant", batch_size=32):
+                 epochs=1, learning_rate=3e-5, lr_scheduler_type="constant", batch_size=32):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.scheduler_type = scheduler_type
+        self.lr_scheduler_type = lr_scheduler_type
         self.batch_size = batch_size
         self.label2id = {l: i for i, l in enumerate(label_list)}
 
@@ -62,7 +62,7 @@ class FedAvgTrainer(BaseFederatedTrainer):
             save_strategy="no",
             report_to="none",
             learning_rate=self.learning_rate,
-            lr_scheduler_type=self.scheduler_type,
+            lr_scheduler_type=self.lr_scheduler_type,
             fp16=True  # 如果不支持可以设为 False 或去掉
         )
         trainer = Trainer(

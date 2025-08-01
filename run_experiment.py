@@ -36,7 +36,7 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 model_init, tokenizer, label_list, device,
                 epochs=cfg.local_epochs,
                 learning_rate=cfg.learning_rate,
-                scheduler_type=cfg.lr_scheduler_type,
+                lr_scheduler_type=cfg.lr_scheduler_type,
                 batch_size=cfg.train_batch_size
             )
         elif cfg.algorithm == "FedProx":
@@ -45,7 +45,7 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 epochs=cfg.local_epochs,
                 mu=0.1,
                 learning_rate=cfg.learning_rate,
-                scheduler_type=cfg.lr_scheduler_type,
+                lr_scheduler_type=cfg.lr_scheduler_type,
                 batch_size=cfg.train_batch_size
             )
         elif cfg.algorithm == "FedAdam":
@@ -54,7 +54,7 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 epochs=cfg.local_epochs,
                 server_lr=0.01,
                 learning_rate=cfg.learning_rate,
-                scheduler_type=cfg.lr_scheduler_type,
+                lr_scheduler_type=cfg.lr_scheduler_type,
                 batch_size=cfg.train_batch_size
             )
         else:
@@ -88,7 +88,7 @@ def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents
         model, tokenizer, train_sents, label_list, device,
         epochs=cfg.local_epochs,
         learning_rate=cfg.learning_rate,
-        scheduler_type=cfg.lr_scheduler_type,
+        lr_scheduler_type=cfg.lr_scheduler_type,
         batch_size=cfg.train_batch_size
     )
     elapsed = log.stop_timer()
