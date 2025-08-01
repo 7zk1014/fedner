@@ -29,12 +29,14 @@ def subsample_data(examples, sample_size=200):
 class FedAdamTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
                  epochs=2, learning_rate=5e-5, scheduler_type="constant",
-                 batch_size=32, server_lr=0.01, train_last_n=4, sample_size=200):
+                 batch_size=32, server_lr=0.01, train_last_n=4,
+                 sample_size=200, max_seq_length=128):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.scheduler_type = scheduler_type
         self.batch_size = batch_size
+        self.max_seq_length = max_seq_length
         self.server_lr = server_lr
         self.train_last_n = train_last_n
         self.sample_size = sample_size
@@ -52,7 +54,7 @@ class FedAdamTrainer(BaseFederatedTrainer):
                 truncation=True,
                 is_split_into_words=True,
                 padding="max_length",
-                max_length=128,
+                max_length=self.max_seq_length,
             )
             tokenized["labels"] = align_labels_with_tokens(tokenized, [example["labels"]], self.label2id)[0]
             return tokenized

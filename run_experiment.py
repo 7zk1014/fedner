@@ -37,7 +37,8 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 epochs=cfg.local_epochs,
                 learning_rate=cfg.learning_rate,
                 scheduler_type=cfg.lr_scheduler_type,
-                batch_size=cfg.train_batch_size
+                batch_size=cfg.train_batch_size,
+                max_seq_length=cfg.max_seq_length
             )
         elif cfg.algorithm == "FedProx":
             trainer = FedProxTrainer(
@@ -46,7 +47,8 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 mu=0.1,
                 learning_rate=cfg.learning_rate,
                 scheduler_type=cfg.lr_scheduler_type,
-                batch_size=cfg.train_batch_size
+                batch_size=cfg.train_batch_size,
+                max_seq_length=cfg.max_seq_length
             )
         elif cfg.algorithm == "FedAdam":
             trainer = FedAdamTrainer(
@@ -55,7 +57,8 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
                 server_lr=0.01,
                 learning_rate=cfg.learning_rate,
                 scheduler_type=cfg.lr_scheduler_type,
-                batch_size=cfg.train_batch_size
+                batch_size=cfg.train_batch_size,
+                max_seq_length=cfg.max_seq_length
             )
         else:
             raise ValueError(f"Unsupported algorithm: {cfg.algorithm}")
@@ -63,7 +66,11 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
         global_model = trainer.train_round(global_model, clients_data)
 
         # Evaluate on test sentences
-        metrics = evaluate_model(global_model, tokenizer, test_sents, label_list)
+        metrics = evaluate_model(
+            global_model, tokenizer, test_sents, label_list,
+            max_seq_length=cfg.max_seq_length,
+            eval_batch_size=cfg.eval_batch_size
+        )
         elapsed = log.stop_timer()
         log.log_round_metrics(r+1, metrics, elapsed)
 
@@ -89,11 +96,16 @@ def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents
         epochs=cfg.local_epochs,
         learning_rate=cfg.learning_rate,
         scheduler_type=cfg.lr_scheduler_type,
-        batch_size=cfg.train_batch_size
+        batch_size=cfg.train_batch_size,
+        max_seq_length=cfg.max_seq_length
     )
     elapsed = log.stop_timer()
 
-    metrics = evaluate_model(model, tokenizer, test_sents, label_list)
+    metrics = evaluate_model(
+        model, tokenizer, test_sents, label_list,
+        max_seq_length=cfg.max_seq_length,
+        eval_batch_size=cfg.eval_batch_size
+    )
     log.log_round_metrics(1, metrics, elapsed)
 
     print(f" Centralized | F1 {metrics['f1']:.4f} | "

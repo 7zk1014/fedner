@@ -11,7 +11,8 @@ def centralized_train(model,
                       epochs=10,
                       learning_rate=3e-5,
                       scheduler_type="constant",
-                      batch_size=32):
+                      batch_size=32,
+                      max_seq_length=128):
 
     label2id = {label: i for i, label in enumerate(label_list)}
 
@@ -21,7 +22,7 @@ def centralized_train(model,
             truncation=True,
             is_split_into_words=True,
             padding="max_length",
-            max_length=128
+            max_length=max_seq_length
         )
         tokenized["labels"] = align_labels_with_tokens(tokenized, [example["labels"]], label2id)[0]
         return tokenized

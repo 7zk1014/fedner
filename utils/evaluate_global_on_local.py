@@ -4,7 +4,10 @@ from typing import List, Dict
 from .evaluate import evaluate_model
 
 
-def evaluate_global_on_local(model, tokenizer, clients_dev_sets: List[List[Dict]], label_list: List[str]):
+def evaluate_global_on_local(model, tokenizer, clients_dev_sets: List[List[Dict]],
+                             label_list: List[str],
+                             max_seq_length: int = 128,
+                             eval_batch_size: int = 8):
     """Evaluate global model on each client's validation set.
 
     Parameters
@@ -27,7 +30,11 @@ def evaluate_global_on_local(model, tokenizer, clients_dev_sets: List[List[Dict]
     """
     client_metrics = []
     for dev_data in clients_dev_sets:
-        metrics = evaluate_model(model, tokenizer, dev_data, label_list)
+        metrics = evaluate_model(
+            model, tokenizer, dev_data, label_list,
+            max_seq_length=max_seq_length,
+            eval_batch_size=eval_batch_size
+        )
         client_metrics.append(metrics)
 
     if client_metrics:

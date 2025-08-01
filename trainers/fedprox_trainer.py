@@ -26,7 +26,8 @@ def get_client_model(global_model, device):
 def train_local_model(
     model, tokenizer, train_examples, label_list, device,
     epochs, batch_size, learning_rate, scheduler_type,
-    prox_mu, global_weights, trainable_layers=2, sample_size=200
+    prox_mu, global_weights, trainable_layers=2, sample_size=200,
+    max_seq_length=128
 ):
     label2id = {l: i for i, l in enumerate(label_list)}
     sampled_data = subsample_data(train_examples, sample_size)
@@ -38,7 +39,7 @@ def train_local_model(
             truncation=True,
             is_split_into_words=True,
             padding="max_length",
-            max_length=128,
+            max_length=max_seq_length,
         )
         tokenized["labels"] = align_labels_with_tokens(tokenized, [example["labels"]], label2id)[0]
         return tokenized
@@ -91,7 +92,8 @@ def train_local_model(
 class FedProxTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
                  epochs=1, mu=0.1, batch_size=32, learning_rate=3e-5,
-                 scheduler_type="constant", trainable_layers=4, sample_size=200):
+                 scheduler_type="constant", trainable_layers=4, sample_size=200,
+                 max_seq_length=128):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.mu = mu
@@ -100,6 +102,7 @@ class FedProxTrainer(BaseFederatedTrainer):
         self.scheduler_type = scheduler_type
         self.trainable_layers = trainable_layers
         self.sample_size = sample_size
+        self.max_seq_length = max_seq_length
 
     def train_round(self, global_model, clients_data):
         global_weights = global_model.state_dict()
@@ -119,7 +122,8 @@ class FedProxTrainer(BaseFederatedTrainer):
                 prox_mu=self.mu,
                 global_weights=global_weights,
                 trainable_layers=self.trainable_layers,
-                sample_size=self.sample_size
+                sample_size=self.sample_size,
+                max_seq_length=self.max_seq_length
             )
             client_models.append(trained.cpu())
         return self.aggregate(client_models)

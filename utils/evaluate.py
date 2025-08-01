@@ -22,7 +22,8 @@ def align_labels_with_tokens(tokenized_inputs, labels, label2id):
         aligned_labels.append(label_ids)
     return aligned_labels
 
-def evaluate_model(model, tokenizer, test_examples, label_list):
+def evaluate_model(model, tokenizer, test_examples, label_list,
+                   max_seq_length=128, eval_batch_size=8):
     label2id = {label: i for i, label in enumerate(label_list)}
     id2label = {i: label for label, i in label2id.items()}
 
@@ -33,7 +34,7 @@ def evaluate_model(model, tokenizer, test_examples, label_list):
                               truncation=True,
                               is_split_into_words=True,
                               padding="max_length",
-                              max_length=128)
+                              max_length=max_seq_length)
         tokenized["labels"] = align_labels_with_tokens(tokenized, [example["labels"]], label2id)[0]
         return tokenized
 
@@ -41,7 +42,7 @@ def evaluate_model(model, tokenizer, test_examples, label_list):
 
     args = TrainingArguments(
         output_dir="./eval_tmp",
-        per_device_eval_batch_size=8
+        per_device_eval_batch_size=eval_batch_size
     )
     trainer = Trainer(model=model, args=args, tokenizer=tokenizer)
     predictions = trainer.predict(test_ds)
