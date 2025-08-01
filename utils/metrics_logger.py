@@ -2,9 +2,18 @@ import time
 from collections import defaultdict
 
 class MetricsLogger:
-    def __init__(self):
+    def __init__(self, cfg=None):
+        """Create a new logger.
+
+        Parameters
+        ----------
+        cfg : object, optional
+            Experiment configuration. When provided it is stored on the logger
+            for later use when saving metrics.
+        """
         self.history = defaultdict(list)
         self.start_time = None
+        self.cfg = cfg
 
     def start_timer(self):
         self.start_time = time.time()
