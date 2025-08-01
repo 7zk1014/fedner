@@ -139,7 +139,7 @@ def main():
     if args.num_clients is not None:
         cfg.num_clients = args.num_clients
 
-    device = "cuda" if torch.cuda.is_available() and cfg.device_mode != "cpu" else "cpu"
+    device = "cuda" if torch.cuda.is_available() and cfg.device != "cpu" else "cpu"
 
     # Load and split data into sentence-level lists
     client_train_sents, dev_sents, test_sents = load_and_split_pubtator(

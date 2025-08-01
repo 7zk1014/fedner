@@ -38,5 +38,5 @@ class Config:
         # 其他设置
         misc = cfg.get("misc", {})
         self.seed         = misc.get("seed", 42)
-        self.device_mode  = misc.get("device", "auto")
+        self.device       = misc.get("device", "auto")
         self.save_results = misc.get("save_results", True)

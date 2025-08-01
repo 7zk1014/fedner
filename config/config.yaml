@@ -24,5 +24,5 @@ hyperparameters:
   lr_scheduler_type: constant 
 misc:
   seed: 42
-  device: auto               # Options: auto, cpu, cuda
+  device: auto               # Options: auto, cpu, or cuda (auto uses cuda if available)
   save_results: true
