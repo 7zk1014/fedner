@@ -29,4 +29,3 @@ class BaseFederatedTrainer(BaseTrainer):
             )
             new_model.state_dict()[key].copy_(avg)
         return new_model.to(self.device)
-
