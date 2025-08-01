@@ -1,7 +1,9 @@
 import os
+os.environ["WANDB_DISABLED"] = "true"
 import argparse
 import torch
-
+import random
+import numpy as np
 from config.config import Config
 from model_loader import load_pubmedbert_model
 from data_loader import load_and_split_pubtator
@@ -14,6 +16,11 @@ from trainers.fedprox_trainer import FedProxTrainer
 from trainers.fedadam_trainer import FedAdamTrainer
 # from trainers.fedkd_trainer import FedKDTrainer  # if implemented
 
+def set_global_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents, model_init, device):
     result_dir = create_experiment_log_dir(algorithm=cfg.algorithm)
@@ -36,7 +43,7 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
             trainer = FedProxTrainer(
                 model_init, tokenizer, label_list, device,
                 epochs=cfg.local_epochs,
-                mu=0.01,
+                mu=0.1,
                 learning_rate=cfg.learning_rate,
                 scheduler_type=cfg.lr_scheduler_type,
                 batch_size=cfg.train_batch_size
@@ -45,7 +52,7 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
             trainer = FedAdamTrainer(
                 model_init, tokenizer, label_list, device,
                 epochs=cfg.local_epochs,
-                server_lr=0.001,
+                server_lr=0.01,
                 learning_rate=cfg.learning_rate,
                 scheduler_type=cfg.lr_scheduler_type,
                 batch_size=cfg.train_batch_size
@@ -93,6 +100,7 @@ def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents
 
 
 def main():
+    set_global_seed(42)
     parser = argparse.ArgumentParser(description="Federated NER with Dirichlet IID/Non‑IID Splits")
     parser.add_argument("--alg",           type=str,
                         choices=["FedAvg","FedProx","FedAdam","Centralized"],
@@ -106,6 +114,9 @@ def main():
     parser.add_argument("--noniid_alpha",
                         type=float,
                         help="Dirichlet alpha parameter (only for noniid)")
+    parser.add_argument("--num_clients",
+                       type=int,
+                       help="number of local clients")
     args = parser.parse_args()
 
     cfg = Config("config/config.yaml")
@@ -117,6 +128,8 @@ def main():
         cfg.partition_strategy = args.partition_strategy
     if args.noniid_alpha is not None:
         cfg.noniid_alpha  = args.noniid_alpha
+    if args.num_clients is not None:
+        cfg.num_clients = args.num_clients
 
     device = "cuda" if torch.cuda.is_available() and cfg.device_mode != "cpu" else "cpu"
 
