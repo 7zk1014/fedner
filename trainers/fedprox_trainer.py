@@ -123,4 +123,3 @@ class FedProxTrainer(BaseFederatedTrainer):
             )
             client_models.append(trained.cpu())
         return self.aggregate(client_models)
-
