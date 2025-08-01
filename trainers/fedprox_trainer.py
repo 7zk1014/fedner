@@ -6,9 +6,9 @@ from transformers import Trainer, TrainingArguments
 from trainers.base_trainer import BaseFederatedTrainer
 from utils.evaluate import align_labels_with_tokens
 
-def freeze_bert_layers(model, trainable_layers=4):
+def freeze_bert_layers(model, train_last_n=4):
     total_layers = 12
-    freeze_up_to = total_layers - trainable_layers
+    freeze_up_to = total_layers - train_last_n
     for name, param in model.named_parameters():
         if name.startswith("bert.encoder.layer."):
             layer_num = int(name.split(".")[3])
@@ -26,11 +26,11 @@ def get_client_model(global_model, device):
 def train_local_model(
     model, tokenizer, train_examples, label_list, device,
     epochs, batch_size, learning_rate, scheduler_type,
-    prox_mu, global_weights, trainable_layers=2, sample_size=200
+    prox_mu, global_weights, train_last_n=2, sample_size=200
 ):
     label2id = {l: i for i, l in enumerate(label_list)}
     sampled_data = subsample_data(train_examples, sample_size)
-    freeze_bert_layers(model, trainable_layers)
+    freeze_bert_layers(model, train_last_n)
 
     def preprocess(example):
         tokenized = tokenizer(
@@ -91,14 +91,14 @@ def train_local_model(
 class FedProxTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
                  epochs=1, mu=0.1, batch_size=32, learning_rate=3e-5,
-                 scheduler_type="constant", trainable_layers=4, sample_size=200):
+                 scheduler_type="constant", train_last_n=4, sample_size=200):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.mu = mu
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.scheduler_type = scheduler_type
-        self.trainable_layers = trainable_layers
+        self.train_last_n = train_last_n
         self.sample_size = sample_size
 
     def train_round(self, global_model, clients_data):
@@ -118,7 +118,7 @@ class FedProxTrainer(BaseFederatedTrainer):
                 scheduler_type=self.scheduler_type,
                 prox_mu=self.mu,
                 global_weights=global_weights,
-                trainable_layers=self.trainable_layers,
+                train_last_n=self.train_last_n,
                 sample_size=self.sample_size
             )
             client_models.append(trained.cpu())
