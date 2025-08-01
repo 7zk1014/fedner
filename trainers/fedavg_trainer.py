@@ -1,10 +1,32 @@
 import torch
 import copy
+import random
 from transformers import Trainer, TrainingArguments
 from datasets import Dataset
 from utils.evaluate import align_labels_with_tokens
 from aggregators.fedavg import average_weights
 from trainers.base_trainer import BaseFederatedTrainer  
+
+def freeze_bert_layers(model, train_last_n=4):
+    """
+    只训练 BERT 的最后 n 层（如最后4层），其余全部冻结。
+    """
+    num_layers = model.bert.config.num_hidden_layers
+    for name, param in model.named_parameters():
+        if name.startswith("bert.encoder.layer."):
+            layer_num = int(name.split(".")[3])
+            if layer_num < num_layers - train_last_n:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+        elif name.startswith("bert.embeddings.") or name.startswith("bert.pooler."):
+            param.requires_grad = False
+        else:
+            # 分类头和其它部分默认训练
+            param.requires_grad = True
+
+def subsample_data(examples, sample_size=200):
+    return random.sample(examples, min(sample_size, len(examples)))
 
 class FedAvgTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
@@ -31,7 +53,9 @@ class FedAvgTrainer(BaseFederatedTrainer):
         return dataset.map(_preprocess)
 
     def train_on_client(self, model, train_examples):
-        train_dataset = self.preprocess(train_examples)
+        sampled_data = subsample_data(train_examples, sample_size=200)
+        freeze_bert_layers(model, train_last_n=4)  # 只训练最后4层
+        train_dataset = self.preprocess(sampled_data)
         args = TrainingArguments(
             per_device_train_batch_size=self.batch_size,
             num_train_epochs=self.epochs,
@@ -39,7 +63,8 @@ class FedAvgTrainer(BaseFederatedTrainer):
             save_strategy="no",
             report_to="none",
             learning_rate=self.learning_rate,
-            lr_scheduler_type=self.scheduler_type
+            lr_scheduler_type=self.scheduler_type,
+            fp16=True  # 如果不支持可以设为 False 或去掉
         )
         trainer = Trainer(
             model=model,
@@ -57,4 +82,4 @@ class FedAvgTrainer(BaseFederatedTrainer):
             model.load_state_dict(copy.deepcopy(global_model.state_dict()))
             trained_model = self.train_on_client(model, data)
             client_models.append(trained_model.cpu())
-        return self.aggregate(client_models)  # 使用 BaseFederatedTrainer 提供的聚合方法
+        return self.aggregate(client_models)
