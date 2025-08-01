@@ -4,7 +4,6 @@ import random
 from transformers import Trainer, TrainingArguments
 from datasets import Dataset
 from utils.evaluate import align_labels_with_tokens
-from aggregators.fedavg import average_weights
 from trainers.base_trainer import BaseFederatedTrainer  
 
 def freeze_bert_layers(model, train_last_n=4):
