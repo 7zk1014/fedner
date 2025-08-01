@@ -1,19 +1,43 @@
-import copy
 import torch
+import copy
+import random
 from transformers import Trainer, TrainingArguments
 from datasets import Dataset
-from trainers.base_trainer import BaseFederatedTrainer
 from utils.evaluate import align_labels_with_tokens
+from trainers.base_trainer import BaseFederatedTrainer
+
+
+def freeze_bert_layers(model, train_last_n=2):
+    """
+    只训练 BERT 的最后 n 层（如最后2层），其余全部冻结。
+    """
+    num_layers = model.bert.config.num_hidden_layers
+    for name, param in model.named_parameters():
+        if name.startswith("bert.encoder.layer."):
+            layer_num = int(name.split(".")[3])
+            param.requires_grad = layer_num >= num_layers - train_last_n
+        elif name.startswith("bert.embeddings.") or name.startswith("bert.pooler."):
+            param.requires_grad = False
+        else:
+            param.requires_grad = True
+
+
+def subsample_data(examples, sample_size=200):
+    return random.sample(examples, min(sample_size, len(examples)))
+
 
 class FedAdamTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device="cpu",
-                 epochs=1, learning_rate=3e-5, scheduler_type="constant", batch_size=32, server_lr=0.01):
+                 epochs=2, learning_rate=5e-5, scheduler_type="constant",
+                 batch_size=32, server_lr=0.01, train_last_n=4, sample_size=200):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.scheduler_type = scheduler_type
         self.batch_size = batch_size
         self.server_lr = server_lr
+        self.train_last_n = train_last_n
+        self.sample_size = sample_size
         self.beta1 = 0.9
         self.beta2 = 0.99
         self.epsilon = 1e-8
@@ -37,7 +61,9 @@ class FedAdamTrainer(BaseFederatedTrainer):
         return dataset.map(_preprocess)
 
     def train_on_client(self, model, train_examples):
-        train_dataset = self.preprocess(train_examples)
+        sampled_data = subsample_data(train_examples, self.sample_size)
+        freeze_bert_layers(model, train_last_n=self.train_last_n)
+        train_dataset = self.preprocess(sampled_data)
         args = TrainingArguments(
             per_device_train_batch_size=self.batch_size,
             num_train_epochs=self.epochs,
@@ -45,7 +71,8 @@ class FedAdamTrainer(BaseFederatedTrainer):
             save_strategy="no",
             report_to="none",
             learning_rate=self.learning_rate,
-            lr_scheduler_type=self.scheduler_type
+            lr_scheduler_type=self.scheduler_type,
+            fp16=True
         )
         trainer = Trainer(
             model=model,
@@ -55,12 +82,12 @@ class FedAdamTrainer(BaseFederatedTrainer):
         )
         trainer.train()
         return model
+
     def train_round(self, global_model, clients_data):
-        global_model.eval()  # 聚合时不进行 dropout 等操作
+        global_model.eval()
         client_models = []
         global_weights = global_model.state_dict()
 
-        # 初始化 FedAdam 动量参数（仅第一次）
         if not self.momentum:
             for name, param in global_model.named_parameters():
                 if param.requires_grad:
@@ -76,15 +103,13 @@ class FedAdamTrainer(BaseFederatedTrainer):
         new_state = copy.deepcopy(global_weights)
         delta = {}
 
-        # 平均每个参数的客户端更新值
         for name in new_state:
-            if name in self.momentum:  # 只更新需要梯度的部分
+            if name in self.momentum:
                 client_tensors = [cm[name].to(self.device) for cm in client_models]
                 global_tensor = global_weights[name].to(self.device)
                 stacked = torch.stack([ct - global_tensor for ct in client_tensors])
                 delta[name] = stacked.mean(dim=0)
 
-        # FedAdam 服务端更新
         with torch.no_grad():
             for name in delta:
                 self.momentum[name] = self.beta1 * self.momentum[name] + (1 - self.beta1) * delta[name]
@@ -94,4 +119,3 @@ class FedAdamTrainer(BaseFederatedTrainer):
 
         global_model.load_state_dict(new_state)
         return global_model
-
