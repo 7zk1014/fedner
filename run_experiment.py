@@ -24,7 +24,7 @@ def set_global_seed(seed=42):
 
 def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents, model_init, device):
     result_dir = create_experiment_log_dir(algorithm=cfg.algorithm)
-    log = MetricsLogger()
+    log = MetricsLogger(cfg)
     global_model = model_init().to(device)
 
     for r in range(cfg.rounds):
@@ -71,12 +71,16 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, test_sents,
               f"P {metrics['precision']:.4f} | R {metrics['recall']:.4f} | "
               f"Time {elapsed:.1f}s\n")
 
-    save_json(log.get_logs(), os.path.join(result_dir, "fed_results.json"))
+    save_json({
+        "algorithm": cfg.algorithm,
+        "config": cfg.__dict__,
+        "metrics": log.get_logs(),
+    }, os.path.join(result_dir, "fed_results.json"))
 
 
 def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents, model_init, device):
     result_dir = create_experiment_log_dir(algorithm="Centralized")
-    log = MetricsLogger()
+    log = MetricsLogger(cfg)
     model = model_init().to(device)
 
     log.start_timer()
@@ -96,7 +100,11 @@ def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents
           f"P {metrics['precision']:.4f} | R {metrics['recall']:.4f} | "
           f"Time {elapsed:.1f}s")
 
-    save_json(log.get_logs(), os.path.join(result_dir, "central_results.json"))
+    save_json({
+        "algorithm": cfg.algorithm,
+        "config": cfg.__dict__,
+        "metrics": log.get_logs(),
+    }, os.path.join(result_dir, "central_results.json"))
 
 
 def main():
