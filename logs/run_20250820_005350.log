@@ -1,0 +1,47 @@
+日志文件：logs/run_20250820_005350.log
+
+== FedSAD 0.01== 0.5
+/root/miniconda3/lib/python3.12/site-packages/torch/cuda/__init__.py:174: UserWarning: CUDA initialization: CUDA unknown error - this may be due to an incorrectly set up environment, e.g. changing env variable CUDA_VISIBLE_DEVICES after program start. Setting the available devices to be zero. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:109.)
+  return torch._C._cuda_getDeviceCount() > 0
+📁 从本地加载模型: /root/autodl-tmp/new/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+Some weights of BertForTokenClassification were not initialized from the model checkpoint at /root/autodl-tmp/new/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([2]) in the checkpoint and torch.Size([43]) in the model instantiated
+- classifier.weight: found shape torch.Size([2, 768]) in the checkpoint and torch.Size([43, 768]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Using device: cpu
+📁 从本地加载模型: /root/autodl-tmp/new/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+Some weights of BertForTokenClassification were not initialized from the model checkpoint at /root/autodl-tmp/new/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([2]) in the checkpoint and torch.Size([43]) in the model instantiated
+- classifier.weight: found shape torch.Size([2, 768]) in the checkpoint and torch.Size([43, 768]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+============================================================
+EXPERIMENT CONFIGURATION
+============================================================
+Algorithm: FedSAD | Clients: 10 (100% per round) | Rounds: 100, Local epochs: 2 | Training: Last 4 layers | Sampling: 200 samples per client (random) | Data: Non-IID (α=0.01)
+------------------------------------------------------------
+Algorithm-specific parameters for FedSAD:
+  - use_distillation: True
+  - kd_start_round: 2
+  - teacher_policy: ema_first
+  - temperature_start: 5.0, temperature_end: 1.5
+  - alpha_ce_start: 1.0, alpha_ce_end: 0.7
+  - alpha_kd_start: 0.0, alpha_kd_end: 0.3
+  - hidden_distill: False, alpha_hidden: 0.0
+  - o_downweight: 1.0
+============================================================
+
+Model initialized: 108,924,715/108,924,715 trainable params (100.0%)
+
+=== Round 1/100 ===
+[Round 1] KD=OFF | policy=ema_first
+[Layer Freezing] Training last 4 transformer layers (layers 8-11)
+[Layer Freezing] Trainable params: 28,384,555 / 108,924,715 (26.1%)
+/root/miniconda3/lib/python3.12/site-packages/torch/nn/modules/module.py:1762: FutureWarning: `encoder_attention_mask` is deprecated and will be removed in version 4.55.0 for `BertSdpaSelfAttention.forward`.
+  return forward_call(*args, **kwargs)
+[Layer Freezing] Training last 4 transformer layers (layers 8-11)
+[Layer Freezing] Trainable params: 28,384,555 / 108,924,715 (26.1%)
+[Layer Freezing] Training last 4 transformer layers (layers 8-11)
+[Layer Freezing] Trainable params: 28,384,555 / 108,924,715 (26.1%)
+[Layer Freezing] Training last 4 transformer layers (layers 8-11)
+[Layer Freezing] Trainable params: 28,384,555 / 108,924,715 (26.1%)

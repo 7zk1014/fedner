@@ -1,0 +1,106 @@
+# -----------------------
+# 通用配置
+# -----------------------
+model_name: microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract
+
+data:
+  pubtator_path:   ./data_set/corpus_pubtator.txt
+  trng_pmids_path:   ./data_set/corpus_pubtator_pmids_trng.txt
+  dev_pmids_path:    ./data_set/corpus_pubtator_pmids_dev.txt
+  test_pmids_path:   ./data_set/corpus_pubtator_pmids_test.txt
+  partition_strategy: "iid"      # "iid" or "noniid"
+  noniid_alpha:        0.01          # Dirichlet分布参数（仅noniid时使用）
+
+training:
+  algorithm: FedAvg             # Options: FedAvg, FedProx, FedAdam, FedSAD, Centralized
+  num_clients: 5
+  rounds:      20
+  local_epochs: 2
+
+# -----------------------
+# 🔥 统一训练控制（所有算法共享）
+# -----------------------
+training_control:
+  # 层冻结控制
+  train_last_n_layers: 4        # 训练最后N层 (-1: 全部层, 0: 仅分类头, 4: 最后4层)
+  freeze_embeddings: true      # 是否冻结embedding层
+  
+  # 数据采样控制
+  sample_size: 200          # 每个客户端采样数量 (null表示使用全部数据)
+  sample_strategy: "random"      # 采样策略: "random", "balanced", "stratified"
+  sample_with_replacement: false  # 是否有放回采样
+  
+  # 客户端选择（部分参与）
+  client_fraction: 1.0          # 每轮参与的客户端比例 (0.3表示30%客户端参与)
+  min_clients_per_round: 1        # 每轮最少客户端数量
+
+hyperparameters:
+  learning_rate:      5e-5
+  lr_scheduler_type:  constant    # constant, linear, cosine
+  train_batch_size:   32
+  eval_batch_size:    32
+  max_seq_length:     128
+
+misc:
+  seed:          42
+  device:        auto          # auto / cpu / cuda
+  save_results:  true
+  verbose:       true            # 打印详细信息
+
+# -----------------------
+# FedAvg (无需额外超参)
+# -----------------------
+fedavg: {}
+
+# -----------------------
+# FedProx 专属超参
+# -----------------------
+fedprox:
+  mu: 0.01                      # Proximal项权重
+
+# -----------------------
+# FedAdam 专属超参
+# -----------------------
+fedadam:
+  server_lr: 0.0005              # 服务器端学习率
+  beta1:     0.9                  # Adam一阶动量系数
+  beta2:     0.999                # Adam二阶动量系数
+
+# -----------------------
+# FedSD (Federated Self-Distillation) 专属超参      
+# -----------------------
+fedsd:
+  alpha_ce: 1        # 交叉熵损失的权重
+  alpha_kl: 1        # KL散度蒸馏损失的权重
+  alpha_hidden: 0.0    # 隐藏层MSE损失的权重 (设为0.0表示不使用)
+  temperature: 2.0     # 知识蒸馏的温度
+  
+# ----------------------
+# FedSAD 专属超参
+# -----------------------
+fedsad:
+  # 蒸馏控制
+  use_distillation: true        # 是否启用蒸馏
+  kd_start_round: 2             # 第几轮开始蒸馏（1-based）
+  teacher_policy: "ema_first"   # {"ema_first","cold_then_ema","prev_global"}
+  first_ema_m0: 0.6            # 仅对 "ema_first" 生效
+  ema_m_min: 0.6               # 后续 EMA 动量下界
+  ema_m_max: 0.05           # 后续 EMA 动量上界
+  temperature_start: 5          # 初始温度（高温促进探索）
+  temperature_end:   1.5          # 最终温度（低温促进精确）
+
+  # 损失权重调度
+  alpha_ce_start: 1            # CE损失初始权重
+  alpha_ce_end:    0.7          # CE损失最终权重
+  alpha_kd_start: 0.0          # KD损失初始权重
+  alpha_kd_end:    0.3          # KD损失最终权重
+  
+  # 隐藏层蒸馏
+  hidden_distill: false            # 是否蒸馏隐藏层
+  alpha_hidden:    0.0          # 隐藏层蒸馏权重
+  o_downweight: 1             # "O" 类损失权重
+  
+  # 梯度压缩（可选）
+  compress_gradients: false      # 是否压缩梯度
+  compress_topk:       0          # SVD压缩保留的奇异值数量
+  compress_min_dim:    100          # 最小维度阈值

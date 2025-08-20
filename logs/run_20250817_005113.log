@@ -1,0 +1,11 @@
+日志文件：logs/run_20250817_005113.log
+
+== niFedAvg 0.01  ==
+Traceback (most recent call last):
+  File "/root/autodl-tmp/new/fedner/run_experiment.py", line 389, in <module>
+    main()
+  File "/root/autodl-tmp/new/fedner/run_experiment.py", line 347, in main
+    cfg.apply_overrides(**overrides)
+  File "/root/autodl-tmp/new/fedner/config/config.py", line 217, in apply_overrides
+    raise AttributeError(f"Unknown config key: {k}")
+AttributeError: Unknown config key: sample_size

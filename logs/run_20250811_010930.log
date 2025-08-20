@@ -1,0 +1,64 @@
+日志文件：logs/run_20250811_010930.log
+
+== iFedAvg ==
+
+============================================================
+EXPERIMENT CONFIGURATION
+============================================================
+Algorithm: FedAvg | Clients: 10 (100% per round) | Rounds: 50, Local epochs: 2 | Training: Last 4 layers | Sampling: 200 samples per client (random) | Data: IID
+============================================================
+
+Using device: cuda
+📁 从本地加载模型: /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+Some weights of BertForTokenClassification were not initialized from the model checkpoint at /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([2]) in the checkpoint and torch.Size([43]) in the model instantiated
+- classifier.weight: found shape torch.Size([2, 768]) in the checkpoint and torch.Size([43, 768]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+📁 从本地加载模型: /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+Some weights of BertForTokenClassification were not initialized from the model checkpoint at /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([2]) in the checkpoint and torch.Size([43]) in the model instantiated
+- classifier.weight: found shape torch.Size([2, 768]) in the checkpoint and torch.Size([43, 768]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+
+============================================================
+Algorithm: FedAvg | Clients: 10 (100% per round) | Rounds: 50, Local epochs: 2 | Training: Last 4 layers | Sampling: 200 samples per client (random) | Data: IID
+============================================================
+
+Model initialized: 108,924,715/108,924,715 trainable params (100.0%)
+
+=== Round 1/50 ===
+Selected clients: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] (10/10)
+📁 从本地加载模型: /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+Some weights of BertForTokenClassification were not initialized from the model checkpoint at /workspace/fedner/models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([2]) in the checkpoint and torch.Size([43]) in the model instantiated
+- classifier.weight: found shape torch.Size([2, 768]) in the checkpoint and torch.Size([43, 768]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[Layer Freezing] Training last 4 transformer layers (layers 8-11)
+[Layer Freezing] Trainable params: 28,384,555 / 108,924,715 (26.1%)
+Map:   0%|                                                                                                                                              | 0/200 [00:00<?, ? examples/s]Map: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 200/200 [00:00<00:00, 2169.26 examples/s]
+Traceback (most recent call last):
+  File "/workspace/fedner/run_experiment.py", line 372, in <module>
+    main()
+  File "/workspace/fedner/run_experiment.py", line 368, in main
+    run_federated_training(cfg, tokenizer, label_list, client_train_sents, dev_sents, test_sents, model_init, device)
+  File "/workspace/fedner/run_experiment.py", line 180, in run_federated_training
+    global_model = trainer.train_round(global_model, selected_client_data)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/fedner/trainers/fedavg_trainer.py", line 117, in train_round
+    trained_model = self.train_on_client(model, data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/fedner/trainers/fedavg_trainer.py", line 90, in train_on_client
+    args = TrainingArguments(
+           ^^^^^^^^^^^^^^^^^^
+  File "<string>", line 133, in __init__
+  File "/usr/local/lib/python3.11/dist-packages/transformers/training_args.py", line 1793, in __post_init__
+    self.device
+  File "/usr/local/lib/python3.11/dist-packages/transformers/training_args.py", line 2322, in device
+    return self._setup_devices
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/transformers/utils/generic.py", line 76, in __get__
+    cached = self.fget(obj)
+             ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/transformers/training_args.py", line 2192, in _setup_devices
+    raise ImportError(
+ImportError: Using the `Trainer` with `PyTorch` requires `accelerate>=0.26.0`: Please run `pip install transformers[torch]` or `pip install 'accelerate>=0.26.0'`
