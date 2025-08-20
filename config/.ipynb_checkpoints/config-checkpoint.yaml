@@ -85,7 +85,7 @@ fedsad:
   teacher_policy: "ema_first"   # {"ema_first","cold_then_ema","prev_global"}
   first_ema_m0: 0.6            # 仅对 "ema_first" 生效
   ema_m_min: 0.6               # 后续 EMA 动量下界
-  ema_m_max: 0.05           # 后续 EMA 动量上界
+  ema_m_max: 0.6           # 后续 EMA 动量上界
   temperature_start: 5          # 初始温度（高温促进探索）
   temperature_end:   1.5          # 最终温度（低温促进精确）
 
