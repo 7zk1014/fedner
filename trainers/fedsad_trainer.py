@@ -33,19 +33,19 @@ class FedSADTrainer(BaseFederatedTrainer):
                  temperature_start=5.0,
                  temperature_end=1.5,
                  alpha_ce_start=1.0,
-                 alpha_ce_end=0.6,
+                 alpha_ce_end=0.7,
                  alpha_kd_start=0.0,
-                 alpha_kd_end=0.4,
+                 alpha_kd_end=0.3,
                  # ====== teacher policy ======
                  teacher_policy: str = "ema_first",    # {"ema_first","cold_then_ema","prev_global"}
-                 first_ema_m0: float = 0.8,            # EMA momentum for first KD round (ema_first policy only)
-                 ema_m_min: float = 0.05,              # Minimum EMA momentum for subsequent KD rounds
-                 ema_m_max: float = 0.8,              # Maximum EMA momentum for subsequent KD rounds
+                 first_ema_m0: float = 0.6,            # EMA momentum for first KD round (ema_first policy only)
+                 ema_m_min: float = 0.6,              # Minimum EMA momentum for subsequent KD rounds
+                 ema_m_max: float = 0.6,              # Maximum EMA momentum for subsequent KD rounds
                  # ====== hidden-state KD (optional) ======
                  hidden_distill: bool = False,
                  alpha_hidden: float = 0.0,
                  # KD mask: O downweight
-                 o_downweight: float = 0.35,
+                 o_downweight: float = 0.0,
                  # compression (optional)
                  compress_gradients: bool = False,
                  compress_topk: int = 0,
