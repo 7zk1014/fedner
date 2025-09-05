@@ -204,7 +204,7 @@ class FedSDTrainer(BaseFederatedTrainer):
         # Optional compression if enabled
         original_size = self._estimate_size(student_sd)
         if self.compress_topk > 0:
-            print(f"🔍 Applying compression with topk={self.compress_topk}")
+            print(f" Applying compression with topk={self.compress_topk}")
             global_sd = global_model.state_dict()
             student_sd = compress_state_dict_diff(
                 global_sd, student_sd,
