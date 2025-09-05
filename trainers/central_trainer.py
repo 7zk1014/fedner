@@ -11,7 +11,7 @@ def centralized_train(
     label_list,
     device="auto",
     epochs=10,
-    learning_rate=3e-5,
+    learning_rate=5e-5,
     scheduler_type="constant",
     batch_size=32,
     sample_size: int = 200,
