@@ -19,8 +19,8 @@ FedNER is a simple framework for running federated learning experiments on Named
 │   ├── fedavg_trainer.py
 │   ├── fedprox_trainer.py
 │   ├── fedadam_trainer.py
-│   ├── fedsd_trainer.py        # Baseline distillation
-│   └── fedsad_trainer.py       # Self-adaptive distillation
+│   ├── fedsd_trainer.py        # Baseline distillation (FedAvg-KD)
+│   └── fedsad_trainer.py       # FedSAD (EMA teacher + annealed KD)
 ├── utils/                      # Logging and evaluation helpers
 │   ├── evaluate.py
 │   ├── evaluate_global_on_local.py
@@ -41,7 +41,6 @@ FedNER is a simple framework for running federated learning experiments on Named
 - **Multiple algorithms**: FedAvg, FedProx, FedAdam, FedSD, FedSAD and a centralized baseline are available.
 - **Config-driven**: Parameters such as number of clients, rounds, and learning rate are defined in `config/config.yaml` and can be overridden via command line.
 - **Metrics logging**: After each round the script logs F1, precision, recall and accuracy and stores them under `results/`.
-- **Visualization utilities**: Scripts in `utils/` such as `plot_metrics.py` help visualize learning curves.
 
 ## Getting Started
 
@@ -58,36 +57,22 @@ FedNER is a simple framework for running federated learning experiments on Named
    ```yaml
    training:
      algorithm: FedAvg
-     num_clients: 5
-     rounds: 5
+     num_clients: 10
+     rounds: 100
      local_epochs: 2
    hyperparameters:
-     learning_rate: 3e-5
+     learning_rate: 5e-5
      train_batch_size: 32
    ```
 5. Launch an experiment:
    ```bash
-   python run_experiment.py --alg FedAvg --rounds 5
+   python run_experiment.py --alg FedAvg --rounds 100
    ```
    Replace `FedAvg` with `FedProx`, `FedAdam`, `FedSD`, `FedSAD` or `Centralized` to try other modes.
 
 ## Results
 
-Metrics for each run are saved under `results/<algorithm>_<timestamp>/`. Visualize the training curve with:
-
-```bash
-python utils/plot_metrics.py
-```
-
-## Centralized Baseline
-
-To train on the full dataset without federated updates:
-
-```bash
-python run_experiment.py --alg Centralized
-```
-
----
+Metrics for each run are saved under `results/<algorithm>_<timestamp>/`. 
 
 FedNER aims to provide a minimal and extensible starting point for exploring federated learning on token classification tasks. Contributions are welcome.
 
