@@ -8,13 +8,13 @@ data:
   trng_pmids_path:   ./data_set/corpus_pubtator_pmids_trng.txt
   dev_pmids_path:    ./data_set/corpus_pubtator_pmids_dev.txt
   test_pmids_path:   ./data_set/corpus_pubtator_pmids_test.txt
-  partition_strategy: "iid"      # "iid" or "noniid"
+  partition_strategy: "noniid"      # "iid" or "noniid"
   noniid_alpha:        0.01          # Dirichlet distribution parameter (used only for noniid)
 
 training:
   algorithm: FedAvg             # Options: FedAvg, FedProx, FedAdam, FedSAD, FedSD, Centralized
-  num_clients: 5
-  rounds:      20
+  num_clients: 10
+  rounds:      100
   local_epochs: 2
 
 # -----------------------
@@ -100,7 +100,7 @@ fedsad:
   alpha_hidden:    0.0          # Hidden layer distillation weight
   o_downweight: 1             # no downweight
   
-  # Gradient compression (optional)
-  compress_gradients: false      # Whether to compress gradients
+  # Gradient compression (turn off)
+  compress_gradients: false      # Whether to compress gradients 
   compress_topk:       0          # Number of singular values to retain in SVD compression
   compress_min_dim:    100          # Minimum dimension threshold
