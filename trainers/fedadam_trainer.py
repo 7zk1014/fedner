@@ -20,7 +20,7 @@ class FedAdamTrainer(BaseFederatedTrainer):
         scheduler_type="constant",
         batch_size=32,
         # FedAdam hyperparameters
-        server_lr=0.001,
+        server_lr=0.0005,
         beta1=0.9,
         beta2=0.99,
         epsilon=1e-8,

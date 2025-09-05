@@ -19,7 +19,7 @@ class FedProxTrainer(BaseFederatedTrainer):
         learning_rate=5e-5,
         scheduler_type="constant",
         batch_size=32,
-        mu=0.01,
+        mu=0.5,
         train_last_n=4,
         sample_size=200,
         sample_strategy="random",
