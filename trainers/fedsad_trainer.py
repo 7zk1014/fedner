@@ -29,7 +29,7 @@ class FedSADTrainer(BaseFederatedTrainer):
                  scheduler_type="constant", rounds=20,
                  # ====== schedules (rebased after KD starts) ======
                  use_distillation=True,
-                 kd_start_round: int = 2,           # ← 第几轮开始蒸馏（1 表示第一轮就 KD）
+                 kd_start_round: int = 2,           # Which round to start knowledge distillation (1-based)
                  temperature_start=5.0,
                  temperature_end=1.5,
                  alpha_ce_start=1.0,
@@ -38,9 +38,9 @@ class FedSADTrainer(BaseFederatedTrainer):
                  alpha_kd_end=0.4,
                  # ====== teacher policy ======
                  teacher_policy: str = "ema_first",    # {"ema_first","cold_then_ema","prev_global"}
-                 first_ema_m0: float = 0.8,            # 仅对 "ema_first" 生效：teacher = m0*G0 + (1-m0)*G_{t-1}
-                 ema_m_min: float = 0.05,              # 后续 EMA 动量下界（KD 已开启后）
-                 ema_m_max: float = 0.8,              # 后续 EMA 动量上界
+                 first_ema_m0: float = 0.8,            # EMA momentum for first KD round (ema_first policy only)
+                 ema_m_min: float = 0.05,              # Minimum EMA momentum for subsequent KD rounds
+                 ema_m_max: float = 0.8,              # Maximum EMA momentum for subsequent KD rounds
                  # ====== hidden-state KD (optional) ======
                  hidden_distill: bool = False,
                  alpha_hidden: float = 0.0,
@@ -67,7 +67,7 @@ class FedSADTrainer(BaseFederatedTrainer):
         self.use_distillation = use_distillation
 
         # KD start & schedules
-        self.kd_start_round = int(kd_start_round)      # 1-based
+        self.kd_start_round = int(kd_start_round)      # 1-based round indexing
         self.temperature_start = float(temperature_start)
         self.temperature_end = float(temperature_end)
         self.alpha_ce_start = float(alpha_ce_start)
@@ -106,21 +106,21 @@ class FedSADTrainer(BaseFederatedTrainer):
         # states
         self.round_idx = 0
         self.teacher_model = None
-        self.init_global_snapshot = None  # 保存 G0
+        self.init_global_snapshot = None  # Store initial global model (G0)
 
     # --------- KD schedules (rebased after KD starts) ----------
     def _progress_after_kd(self):
-        # progress in [0,1] counted from kd_start_round
+        # Progress ratio [0,1] counted from when KD starts
         t = max(0, self.round_idx - self.kd_start_round)
         denom = max(1, self.rounds - self.kd_start_round)
         return min(1.0, t / denom)
 
     def get_current_hyperparams(self):
-        """KD-aware schedules: before kd_start_round → KD=0; after → linear anneal."""
+        """KD-aware parameter scheduling: no KD before start round, then linear annealing."""
         if not self.use_distillation or self.round_idx < self.kd_start_round:
             return self.temperature_start, self.alpha_ce_start, 0.0
 
-        p = self._progress_after_kd()  # 0 at first KD round
+        p = self._progress_after_kd()  # Progress since KD started
         T  = self.temperature_start - (self.temperature_start - self.temperature_end) * p
         a_ce = self.alpha_ce_start    - (self.alpha_ce_start    - self.alpha_ce_end) * p
         a_kd = self.alpha_kd_start    + (self.alpha_kd_end      - self.alpha_kd_start) * p
@@ -131,12 +131,12 @@ class FedSADTrainer(BaseFederatedTrainer):
                              labels=None, student_hidden=None, teacher_hidden=None):
         T, _, _ = self.get_current_hyperparams()
 
-        # logits KD (keep gradients for student!)
+        # Knowledge distillation on logits (maintains gradients for student)
         s_log = F.log_softmax(student_logits / T, dim=-1)
         t_soft = F.softmax(teacher_logits / T, dim=-1)
         kl_per_tok = F.kl_div(s_log, t_soft, reduction='none').sum(dim=-1)  # [B,L]
 
-        # valid mask
+        # Create validity mask for tokens
         valid = attention_mask.float()
         if labels is not None:
             valid = valid * (labels != -100).float()
@@ -164,7 +164,7 @@ class FedSADTrainer(BaseFederatedTrainer):
         freeze_model_layers(student_model, train_last_n_layers=self.train_last_n_layers)
         student_model.train()
 
-        # KD on?
+        # Check if knowledge distillation is active
         kd_on = self.use_distillation and (self.round_idx >= self.kd_start_round) and (self.teacher_model is not None)
         teacher_model = None
         if kd_on:
@@ -291,7 +291,7 @@ class FedSADTrainer(BaseFederatedTrainer):
             self.teacher_model = None
             return
 
-        # snapshot G0 once
+        # Save initial global model snapshot once
         if self.init_global_snapshot is None:
             self.init_global_snapshot = copy.deepcopy(global_model)  # G0
 
@@ -299,34 +299,34 @@ class FedSADTrainer(BaseFederatedTrainer):
             self.teacher_model = None
             return
 
-        # first KD round
+        # Handle first knowledge distillation round
         if self.round_idx == self.kd_start_round:
             if self.teacher_policy == "ema_first":
-                # teacher = m0*G0 + (1-m0)*G_{t-1}
+                # Blend initial model with previous global model
                 self.teacher_model = copy.deepcopy(self.init_global_snapshot)  # start from G0
                 self._blend_models_(self.teacher_model, global_model, m=self.first_ema_m0)
             elif self.teacher_policy == "cold_then_ema":
-                # teacher = G_{t-1}
+                # Use previous global model as teacher
                 self.teacher_model = copy.deepcopy(global_model)
             elif self.teacher_policy == "prev_global":
-                # teacher = G_{t-1} (no EMA ever)
+                # Always use previous global model (no EMA)
                 self.teacher_model = copy.deepcopy(global_model)
             return
 
-        # subsequent KD rounds (t > kd_start_round)
+        # Handle subsequent knowledge distillation rounds
         if self.teacher_policy == "prev_global":
-            # always use prev global, no EMA
+            # Always use previous global model, no EMA
             self.teacher_model = copy.deepcopy(global_model)
         else:
-            # EMA with annealed momentum m in [ema_m_min, ema_m_max]
-            p = self._progress_after_kd()  # 0 at first KD round
+            # Apply EMA with annealed momentum
+            p = self._progress_after_kd()  # Progress since KD started
             m = self.ema_m_max - (self.ema_m_max - self.ema_m_min) * p
             if self.teacher_model is None:
                 self.teacher_model = copy.deepcopy(global_model)
             else:
                 self._blend_models_(self.teacher_model, global_model, m=m)
 
-        # freeze teacher params
+        # Freeze teacher model parameters
         self.teacher_model.eval()
         for p in self.teacher_model.parameters():
             p.requires_grad = False
@@ -335,18 +335,18 @@ class FedSADTrainer(BaseFederatedTrainer):
     def train_round(self, global_model, clients_data):
         self.round_idx += 1
 
-        # teacher update (at the beginning: global_model == G_{t-1})
+        # Update teacher model at start of round
         self._update_teacher_policy(global_model)
         kd_on = self.use_distillation and (self.round_idx >= self.kd_start_round)
         print(f"[Round {self.round_idx}] KD={'ON' if kd_on else 'OFF'} | policy={self.teacher_policy}")
 
-        # local training
+        # Local client training
         client_weights, client_samples = [], []
         for cid, cdata in enumerate(clients_data):
             sd, ns, _ = self.train_local_model(global_model, cdata, cid)
             client_weights.append(sd); client_samples.append(ns)
 
-        # aggregate
+        # Aggregate client models
         new_global = self.weighted_aggregate(client_weights, client_samples)
         global_model.load_state_dict(new_global)
 
@@ -374,4 +374,4 @@ class FedSADTrainer(BaseFederatedTrainer):
             for v in sd.values():
                 if isinstance(v, torch.Tensor):
                     total_params += v.numel()
-        return total_params * 4 / (1024 ** 2)  # MB
+        return total_params * 4 / (1024 ** 2)  # Convert bytes to MB

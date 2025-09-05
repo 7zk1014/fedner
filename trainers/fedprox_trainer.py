@@ -19,11 +19,11 @@ class FedProxTrainer(BaseFederatedTrainer):
         learning_rate=5e-5,
         scheduler_type="constant",
         batch_size=32,
-        mu=0.01,                       # FedProx 特有参数
+        mu=0.01,
         train_last_n=4,
-        sample_size=200,               # 新增
-        sample_strategy="random",       # 新增
-        max_seq_length=128               # 新增
+        sample_size=200,
+        sample_strategy="random",
+        max_seq_length=128
     ):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = int(epochs)
@@ -61,7 +61,6 @@ class FedProxTrainer(BaseFederatedTrainer):
         return ds
 
     def train_on_client(self, model, train_examples, global_params):
-        # 1) 采样
         sampled_data = sample_client_data(
             data=train_examples,
             sample_size=self.sample_size,
@@ -70,25 +69,23 @@ class FedProxTrainer(BaseFederatedTrainer):
             seed=None
         )
 
-        # 2) 冻结/解冻层
         freeze_model_layers(
             model,
             train_last_n_layers=self.train_last_n,
             freeze_embeddings=True
         )
 
-        # 3) 预处理
         train_dataset = self.preprocess(sampled_data)
         train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
         use_fp16 = torch.cuda.is_available()
 
-        # 4) 自定义 Trainer 加上 FedProx 正则
+        # Custom Trainer with FedProx regularization
         class FedProxHFTrainer(Trainer):
             def __init__(self, mu, global_params, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.mu = float(mu)
-                # 存 CPU 版的全局参数快照，避免占显存
+                # Store CPU version of global parameter snapshot to avoid GPU memory usage
                 self.global_params = {k: v.detach().clone().cpu() for k, v in global_params.items()} if global_params else None
         
             def compute_loss(
@@ -96,15 +93,15 @@ class FedProxTrainer(BaseFederatedTrainer):
                 model,
                 inputs,
                 return_outputs: bool = False,
-                num_items_in_batch=None,   # ★ 兼容新版 transformers
-                **kwargs,                  # ★ 兜底未来可能新增的参数
+                num_items_in_batch=None,   # Compatible with new version transformers
+                **kwargs,                  # Fallback for possible future parameters
             ):
-                # 用父类计算基础 loss（可兼容 label_smoothing 等），把新参数一并传回去
+                # Use parent class to calculate base loss (compatible with label_smoothing etc), pass new parameters through
                 loss, outputs = super().compute_loss(
                     model, inputs, return_outputs=True, num_items_in_batch=num_items_in_batch, **kwargs
                 )
         
-                # FedProx 近端正则： (μ/2) * Σ ||w - w_global||^2，仅对 requires_grad 的参数
+                # FedProx proximal regularization: (μ/2) * Σ ||w - w_global||^2, applied only to trainable parameters
                 if self.global_params is not None and self.mu > 0:
                     prox = 0.0
                     for name, p in model.named_parameters():
@@ -153,7 +150,6 @@ class FedProxTrainer(BaseFederatedTrainer):
             trained_model = self.train_on_client(model, data, global_params)
             client_models.append(copy.deepcopy(trained_model.state_dict()))
 
-        # FedAvg 聚合
         new_state = copy.deepcopy(global_params)
         with torch.no_grad():
             for key in new_state:
@@ -162,7 +158,7 @@ class FedProxTrainer(BaseFederatedTrainer):
 
         global_model.load_state_dict(new_state)
 
-        # 📦 通信量统计
+        # Communication cost estimation
         uploaded_bytes = 0
         for param in global_params.values():
             uploaded_bytes += param.numel() * 4  # float32

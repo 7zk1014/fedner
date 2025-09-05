@@ -1,6 +1,6 @@
 """
-统一的训练工具函数
-所有算法共享这些函数来保证公平对比
+Unified training utility functions
+All algorithms share these functions to ensure fair comparison
 """
 
 import random
@@ -11,28 +11,28 @@ from typing import List, Dict, Optional, Any
 
 def freeze_model_layers(model, train_last_n_layers: int = 4, freeze_embeddings: bool = True):
     """
-    统一的层冻结函数，所有算法使用相同的冻结策略
+    Unified layer freezing function, all algorithms use the same freezing strategy
     
     Args:
-        model: BERT-like模型
-        train_last_n_layers: 训练最后N层
-            -1: 训练所有层
-            0: 只训练分类头
-            1-12: 训练最后N个transformer层
-        freeze_embeddings: 是否冻结embedding层
+        model: BERT-like model
+        train_last_n_layers: Train last N layers
+            -1: Train all layers
+            0: Train only classifier head
+            1-12: Train last N transformer layers
+        freeze_embeddings: Whether to freeze embedding layers
     """
-    # 如果是 -1，训练所有层
+    # If -1, train all layers
     if train_last_n_layers == -1:
         for param in model.parameters():
             param.requires_grad = True
         print("[Layer Freezing] Training all layers")
         return
     
-    # 首先冻结所有参数
+    # First freeze all parameters
     for param in model.parameters():
         param.requires_grad = False
     
-    # 获取模型配置
+    # Get model configuration
     if hasattr(model, 'bert'):
         bert_model = model.bert
         classifier = model.classifier if hasattr(model, 'classifier') else None
@@ -42,40 +42,40 @@ def freeze_model_layers(model, train_last_n_layers: int = 4, freeze_embeddings: 
         classifier = model.classifier if hasattr(model, 'classifier') else None
         num_hidden_layers = bert_model.config.n_layers
     else:
-        # 其他架构，默认解冻所有
+        # Other architectures, default unfreeze all
         for param in model.parameters():
             param.requires_grad = True
         return
     
-    # 总是解冻分类头
+    # Always unfreeze classification head
     if classifier is not None:
         for param in classifier.parameters():
             param.requires_grad = True
     
-    # 如果只训练分类头
+    # If only training classification head
     if train_last_n_layers == 0:
         print("[Layer Freezing] Training only classifier head")
         return
     
-    # 解冻最后N个transformer层
+    # Unfreeze last N transformer layers
     if train_last_n_layers > 0:
-        # 计算需要解冻的层索引
+        # Calculate layer indices to unfreeze
         layers_to_unfreeze = list(range(max(0, num_hidden_layers - train_last_n_layers), num_hidden_layers))
         
-        # 解冻指定的encoder层
+        # Unfreeze specified encoder layers
         for name, param in model.named_parameters():
-            # BERT架构
+            # BERT architecture
             if "encoder.layer." in name:
                 layer_num = int(name.split("encoder.layer.")[1].split(".")[0])
                 if layer_num in layers_to_unfreeze:
                     param.requires_grad = True
-            # DistilBERT架构
+            # DistilBERT architecture
             elif "transformer.layer." in name:
                 layer_num = int(name.split("transformer.layer.")[1].split(".")[0])
                 if layer_num in layers_to_unfreeze:
                     param.requires_grad = True
         
-        # 处理embedding层
+        # Handle embedding layers
         if not freeze_embeddings:
             if hasattr(bert_model, 'embeddings'):
                 for param in bert_model.embeddings.parameters():
@@ -86,7 +86,7 @@ def freeze_model_layers(model, train_last_n_layers: int = 4, freeze_embeddings: 
         if not freeze_embeddings:
             print("[Layer Freezing] Also training embedding layers")
     
-    # 打印可训练参数统计
+    # Print trainable parameter statistics
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"[Layer Freezing] Trainable params: {trainable_params:,} / {total_params:,} "
@@ -101,20 +101,20 @@ def sample_client_data(
     seed: Optional[int] = None
 ) -> List[Dict]:
     """
-    统一的数据采样函数
+    Unified data sampling function
     
     Args:
-        data: 客户端的原始数据
-        sample_size: 采样数量，None表示使用全部数据
-        strategy: 采样策略
-            - "random": 随机采样
-            - "balanced": 按标签均衡采样
-            - "stratified": 分层采样（保持标签比例）
-        with_replacement: 是否有放回采样
-        seed: 随机种子
+        data: Client's raw data
+        sample_size: Sample size, None means use all data
+        strategy: Sampling strategy
+            - "random": Random sampling
+            - "balanced": Balanced sampling by labels
+            - "stratified": Stratified sampling (maintain label proportions)
+        with_replacement: Whether to use replacement sampling
+        seed: Random seed
     
     Returns:
-        采样后的数据
+        Sampled data
     """
     if sample_size is None or sample_size >= len(data):
         return data
@@ -123,17 +123,17 @@ def sample_client_data(
         random.seed(seed)
     
     if strategy == "random":
-        # 随机采样
+        # Random sampling
         if with_replacement:
             sampled = random.choices(data, k=sample_size)
         else:
             sampled = random.sample(data, min(sample_size, len(data)))
     
     elif strategy == "balanced":
-        # 均衡采样：每个标签采样相同数量
+        # Balanced sampling: sample equal amounts for each label
         label_groups = {}
         for item in data:
-            # 获取该样本的主要标签（第一个非O标签）
+            # Get the main label of this sample (first non-O label)
             main_label = "O"
             for label in item.get("labels", []):
                 if label != "O":
@@ -144,7 +144,7 @@ def sample_client_data(
                 label_groups[main_label] = []
             label_groups[main_label].append(item)
         
-        # 每个标签组采样
+        # Sample from each label group
         sampled = []
         samples_per_label = max(1, sample_size // len(label_groups))
         remaining = sample_size
@@ -157,7 +157,7 @@ def sample_client_data(
                 sampled.extend(random.sample(items, n))
             remaining -= n
         
-        # 如果还有剩余配额，随机补充
+        # If there's remaining quota, randomly supplement
         if remaining > 0:
             all_unsampled = [item for item in data if item not in sampled]
             if all_unsampled:
@@ -165,11 +165,11 @@ def sample_client_data(
                 sampled.extend(extra)
     
     elif strategy == "stratified":
-        # 分层采样：保持原始标签分布比例
+        # Stratified sampling: maintain original label distribution proportions
         label_counts = Counter()
         label_groups = {}
         
-        # 统计标签分布
+        # Count label distribution
         for item in data:
             main_label = "O"
             for label in item.get("labels", []):
@@ -182,7 +182,7 @@ def sample_client_data(
                 label_groups[main_label] = []
             label_groups[main_label].append(item)
         
-        # 按比例采样
+        # Sample by proportion
         sampled = []
         for label, items in label_groups.items():
             proportion = label_counts[label] / len(data)
@@ -194,11 +194,11 @@ def sample_client_data(
             else:
                 sampled.extend(random.sample(items, n))
         
-        # 调整到精确的采样数量
+        # Adjust to exact sample size
         if len(sampled) > sample_size:
             sampled = random.sample(sampled, sample_size)
         elif len(sampled) < sample_size:
-            # 补充采样
+            # Fill remaining quota with additional samples
             all_unsampled = [item for item in data if item not in sampled]
             if all_unsampled:
                 extra_needed = sample_size - len(sampled)
@@ -208,8 +208,7 @@ def sample_client_data(
     else:
         raise ValueError(f"Unknown sampling strategy: {strategy}")
     
-    # 打乱顺序
-    # random.shuffle(sampled)
+    # Note: Order shuffling is commented out to maintain reproducibility
     
     return sampled
 
@@ -222,27 +221,27 @@ def select_clients_for_round(
     seed: Optional[int] = None
 ) -> List[int]:
     """
-    选择本轮参与训练的客户端
+    Select clients participating in this training round
     
     Args:
-        num_clients: 总客户端数量
-        fraction: 参与比例 (0, 1]
-        min_clients: 最少参与客户端数
-        round_idx: 当前轮次（用于随机种子）
-        seed: 基础随机种子
+        num_clients: Total number of clients
+        fraction: Participation ratio (0, 1]
+        min_clients: Minimum number of participating clients
+        round_idx: Current round index (used for random seed)
+        seed: Base random seed
     
     Returns:
-        参与客户端的索引列表
+        List of participating client indices
     """
-    # 计算本轮参与的客户端数量
+    # Calculate number of clients participating in this round
     num_selected = max(min_clients, int(num_clients * fraction))
     num_selected = min(num_selected, num_clients)
     
-    # 设置随机种子（每轮不同）
+    # Set random seed (different for each round)
     if seed is not None:
         random.seed(seed + round_idx)
     
-    # 随机选择客户端
+    # Randomly select clients
     selected_clients = random.sample(range(num_clients), num_selected)
     selected_clients.sort()
     
@@ -251,17 +250,17 @@ def select_clients_for_round(
 
 def print_data_statistics(data: List[Dict], name: str = "Dataset"):
     """
-    打印数据统计信息
+    Print data statistics
     
     Args:
-        data: 数据列表
-        name: 数据集名称
+        data: Data list
+        name: Dataset name
     """
     if not data:
         print(f"[{name}] No data")
         return
     
-    # 统计标签分布
+    # Count label distribution
     label_counts = Counter()
     total_tokens = 0
     
@@ -272,7 +271,7 @@ def print_data_statistics(data: List[Dict], name: str = "Dataset"):
         
         for label in labels:
             if label != "O":
-                # 提取基础标签（去除B-/I-前缀）
+                # Extract base label (remove B-/I- prefix)
                 base_label = label.replace("B-", "").replace("I-", "")
                 label_counts[base_label] += 1
     
@@ -290,13 +289,13 @@ def print_data_statistics(data: List[Dict], name: str = "Dataset"):
 
 def get_model_size_mb(model) -> float:
     """
-    计算模型大小（MB）
+    Calculate model size (MB)
     
     Args:
-        model: PyTorch模型
+        model: PyTorch model
     
     Returns:
-        模型大小（MB）
+        Model size (MB)
     """
     param_size = 0
     for param in model.parameters():
@@ -314,13 +313,13 @@ def get_model_size_mb(model) -> float:
 
 def get_trainable_params_info(model) -> Dict[str, Any]:
     """
-    获取模型可训练参数信息
+    Get model trainable parameter information
     
     Args:
-        model: PyTorch模型
+        model: PyTorch model
     
     Returns:
-        包含参数统计的字典
+        Dictionary containing parameter statistics
     """
     total_params = 0
     trainable_params = 0
@@ -334,6 +333,6 @@ def get_trainable_params_info(model) -> Dict[str, Any]:
         "total_params": total_params,
         "trainable_params": trainable_params,
         "trainable_ratio": trainable_params / total_params if total_params > 0 else 0,
-        "total_size_mb": total_params * 4 / (1024 ** 2),  # 假设float32
+        "total_size_mb": total_params * 4 / (1024 ** 2),  # Assume float32
         "trainable_size_mb": trainable_params * 4 / (1024 ** 2)
     }

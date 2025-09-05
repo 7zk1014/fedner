@@ -1,5 +1,5 @@
 # -----------------------
-# 通用配置
+# General Configuration
 # -----------------------
 model_name: microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract
 
@@ -9,30 +9,30 @@ data:
   dev_pmids_path:    ./data_set/corpus_pubtator_pmids_dev.txt
   test_pmids_path:   ./data_set/corpus_pubtator_pmids_test.txt
   partition_strategy: "iid"      # "iid" or "noniid"
-  noniid_alpha:        0.01          # Dirichlet分布参数（仅noniid时使用）
+  noniid_alpha:        0.01          # Dirichlet distribution parameter (used only for noniid)
 
 training:
-  algorithm: FedAvg             # Options: FedAvg, FedProx, FedAdam, FedSAD, Centralized
+  algorithm: FedAvg             # Options: FedAvg, FedProx, FedAdam, FedSAD, FedSD, Centralized
   num_clients: 5
   rounds:      20
   local_epochs: 2
 
 # -----------------------
-# 🔥 统一训练控制（所有算法共享）
+#  Unified Training Control (Shared by All Algorithms)
 # -----------------------
 training_control:
-  # 层冻结控制
-  train_last_n_layers: 4        # 训练最后N层 (-1: 全部层, 0: 仅分类头, 4: 最后4层)
-  freeze_embeddings: true      # 是否冻结embedding层
+  # Layer freezing control
+  train_last_n_layers: 4        # Train last N layers (-1: all layers, 0: classifier only, 4: last 4 layers)
+  freeze_embeddings: true      # Whether to freeze embedding layers
   
-  # 数据采样控制
-  sample_size: 200          # 每个客户端采样数量 (null表示使用全部数据)
-  sample_strategy: "random"      # 采样策略: "random", "balanced", "stratified"
-  sample_with_replacement: false  # 是否有放回采样
+  # Data sampling control
+  sample_size: 200          # Number of samples per client (null means use all data)
+  sample_strategy: "random"      # Sampling strategy: "random", "balanced", "stratified"
+  sample_with_replacement: false  # Whether to use replacement sampling
   
-  # 客户端选择（部分参与）
-  client_fraction: 1.0          # 每轮参与的客户端比例 (0.3表示30%客户端参与)
-  min_clients_per_round: 1        # 每轮最少客户端数量
+  # Client selection (partial participation)
+  client_fraction: 1.0          # Fraction of clients participating per round (0.3 means 30% clients participate)
+  min_clients_per_round: 1        # Minimum number of clients per round
 
 hyperparameters:
   learning_rate:      5e-5
@@ -45,62 +45,62 @@ misc:
   seed:          42
   device:        auto          # auto / cpu / cuda
   save_results:  true
-  verbose:       true            # 打印详细信息
+  verbose:       true            # Print detailed information
 
 # -----------------------
-# FedAvg (无需额外超参)
+# FedAvg (No additional hyperparameters needed)
 # -----------------------
 fedavg: {}
 
 # -----------------------
-# FedProx 专属超参
+# FedProx Specific Hyperparameters
 # -----------------------
 fedprox:
-  mu: 0.5                      # Proximal项权重
+  mu: 0.5                      # Proximal term weight
 
 # -----------------------
-# FedAdam 专属超参
+# FedAdam Specific Hyperparameters
 # -----------------------
 fedadam:
-  server_lr: 0.0005              # 服务器端学习率
-  beta1:     0.9                  # Adam一阶动量系数
-  beta2:     0.999                # Adam二阶动量系数
+  server_lr: 0.0005              # Server-side learning rate
+  beta1:     0.9                  # Adam first-order momentum coefficient
+  beta2:     0.999                # Adam second-order momentum coefficient
 
 # -----------------------
-# FedSD (Federated Self-Distillation) 专属超参      
+# FedSD (FedAvg-KD) Specific Hyperparameters
 # -----------------------
 fedsd:
-  alpha_ce: 1        # 交叉熵损失的权重
-  alpha_kl: 1        # KL散度蒸馏损失的权重
-  alpha_hidden: 0.0    # 隐藏层MSE损失的权重 (设为0.0表示不使用)
-  temperature: 2.0     # 知识蒸馏的温度
+  alpha_ce: 1        # Weight for cross-entropy loss
+  alpha_kl: 1        # Weight for KL divergence distillation loss
+  alpha_hidden: 0.0    # Weight for hidden layer MSE loss (set to 0.0 means not used)
+  temperature: 2.0     # Temperature for knowledge distillation
   
 # ----------------------
-# FedSAD 专属超参
+# FedSAD Specific Hyperparameters
 # -----------------------
 fedsad:
-  # 蒸馏控制
-  use_distillation: true        # 是否启用蒸馏
-  kd_start_round: 2             # 第几轮开始蒸馏（1-based）
+  # Distillation control
+  use_distillation: true        # Whether to enable distillation
+  kd_start_round: 2             # Which round to start distillation (1-based)
   teacher_policy: "ema_first"   # {"ema_first","cold_then_ema","prev_global"}
-  first_ema_m0: 0.6            # 仅对 "ema_first" 生效
-  ema_m_min: 0.6               # 后续 EMA 动量下界
-  ema_m_max: 0.6           # 后续 EMA 动量上界
-  temperature_start: 5          # 初始温度（高温促进探索）
-  temperature_end:   1.5          # 最终温度（低温促进精确）
+  first_ema_m0: 0.6            # Only effective for "ema_first"
+  ema_m_min: 0.6               # Lower bound for subsequent EMA momentum
+  ema_m_max: 0.6           # Upper bound for subsequent EMA momentum
+  temperature_start: 5          # Initial temperature (high temp promotes exploration)
+  temperature_end:   1.5          # Final temperature (low temp promotes precision)
 
-  # 损失权重调度
-  alpha_ce_start: 1            # CE损失初始权重
-  alpha_ce_end:    0.7          # CE损失最终权重
-  alpha_kd_start: 0.0          # KD损失初始权重
-  alpha_kd_end:    0.3          # KD损失最终权重
+  # Loss weight scheduling
+  alpha_ce_start: 1            # Initial weight for CE loss
+  alpha_ce_end:    0.7          # Final weight for CE loss
+  alpha_kd_start: 0.0          # Initial weight for KD loss
+  alpha_kd_end:    0.3          # Final weight for KD loss
   
-  # 隐藏层蒸馏
-  hidden_distill: false            # 是否蒸馏隐藏层
-  alpha_hidden:    0.0          # 隐藏层蒸馏权重
-  o_downweight: 1             # "O" 类损失权重
+  # Hidden layer distillation
+  hidden_distill: false            # Whether to distill hidden layers
+  alpha_hidden:    0.0          # Hidden layer distillation weight
+  o_downweight: 1             # no downweight
   
-  # 梯度压缩（可选）
-  compress_gradients: false      # 是否压缩梯度
-  compress_topk:       0          # SVD压缩保留的奇异值数量
-  compress_min_dim:    100          # 最小维度阈值
+  # Gradient compression (optional)
+  compress_gradients: false      # Whether to compress gradients
+  compress_topk:       0          # Number of singular values to retain in SVD compression
+  compress_min_dim:    100          # Minimum dimension threshold

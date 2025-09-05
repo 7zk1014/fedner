@@ -4,7 +4,7 @@ from datetime import datetime
 
 def create_experiment_log_dir(base_dir="results", algorithm="FedAvg"):
     """
-    创建带时间戳的实验结果目录，并记录到 current_results_path.txt
+    Create timestamped experiment results directory and record to current_results_path.txt
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     result_dir = os.path.join(base_dir, f"{algorithm}_{timestamp}")
@@ -13,11 +13,11 @@ def create_experiment_log_dir(base_dir="results", algorithm="FedAvg"):
         f.write(result_dir)
     return result_dir
 
-# 🔹 递归转换不可序列化类型
+# Recursively convert non-serializable objects for JSON serialization
 def _convert_for_json(obj):
     if isinstance(obj, set):
         return list(obj)
-    elif obj is ...:  # 防止 ellipsis 报错
+    elif obj is ...:  # Handle ellipsis objects
         return None
     elif isinstance(obj, dict):
         return {k: _convert_for_json(v) for k, v in obj.items()}
@@ -27,17 +27,17 @@ def _convert_for_json(obj):
 
 def save_json(data, filename):
     """
-    保存 JSON，同时生成带时间戳的备份。
-    自动处理 set / ellipsis 等不可序列化类型。
+    Save JSON with timestamped backup.
+    Automatically handles non-serializable types like set/ellipsis.
     """
     data = _convert_for_json(data)
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-    # 保存主文件
+    # Save main file
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-    # 保存时间戳备份
+    # Save timestamped backup
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_filename = f"{os.path.splitext(filename)[0]}_{timestamp}.json"
     with open(backup_filename, "w", encoding="utf-8") as f:

@@ -29,7 +29,7 @@ class FedSDTrainer(BaseFederatedTrainer):
     def __init__(self, model_init, tokenizer, label_list, device,
                  epochs=2, batch_size=32, learning_rate=5e-5,
                  scheduler_type="constant",
-                 alpha_ce=1.0, alpha_kl=1.0, alpha_hidden=0.0,   # keep alpha_hidden=0.0
+                 alpha_ce=1.0, alpha_kl=1.0, alpha_hidden=0.0,   # Force hidden KD off
                  temperature=2.0,
                  compress_topk=0, compress_min_dim=50,
                  train_last_n: int = 4,
@@ -46,7 +46,7 @@ class FedSDTrainer(BaseFederatedTrainer):
         self.scheduler_type   = scheduler_type
         self.alpha_ce         = alpha_ce
         self.alpha_kl         = alpha_kl
-        self.alpha_hidden     = 0.0            # force OFF hidden KD
+        self.alpha_hidden     = 0.0            # Disable hidden layer distillation
         self.temperature      = temperature
         self.compress_topk    = compress_topk
         self.compress_min_dim = compress_min_dim
@@ -60,7 +60,7 @@ class FedSDTrainer(BaseFederatedTrainer):
         total_num_samples = 0
 
         for i, client_data in enumerate(clients_data):
-            use_kd = round_idx > 1  # 第1轮不启用KD
+            use_kd = round_idx > 1  # No KD in first round
             state_dict, num_samples, _loss = self.train_local_model(
                 global_model, client_data, use_kd, round_idx
             )
@@ -74,14 +74,14 @@ class FedSDTrainer(BaseFederatedTrainer):
     def train_local_model(self, global_model, train_examples, use_kd=True, round_idx=1):
         print(f"Original training examples: {len(train_examples)}")
         
-        # 客户端采样（保持与 FedAvg 一致）
+        # Client data sampling (consistent with FedAvg)
         sampled = sample_client_data(
             train_examples, 
             sample_size=self.sample_size,
             strategy="random",
         )
 
-        # teacher 模型（上一轮全局；不需要 labels / 不输出隐藏态）
+        # Teacher model (previous global model, no labels/hidden states needed)
         if use_kd:
             teacher_model = copy.deepcopy(global_model).to(self.device)
             teacher_model.eval()
@@ -90,7 +90,7 @@ class FedSDTrainer(BaseFederatedTrainer):
         else:
             teacher_model = None
 
-        # student 模型（只训后 N 层）
+        # Student model (train only last N layers)
         student_model = copy.deepcopy(global_model).to(self.device)
         freeze_model_layers(
             student_model, 
@@ -99,7 +99,7 @@ class FedSDTrainer(BaseFederatedTrainer):
         )
         student_model.train()
 
-        # 数据编码
+        # Data encoding
         texts = [e["tokens"] for e in sampled]
         label_seqs = [e["labels"] for e in sampled]
 
@@ -150,7 +150,7 @@ class FedSDTrainer(BaseFederatedTrainer):
                 token_type_ids = token_type_ids.to(self.device)
                 labels = labels.to(self.device)
 
-                # 学生前向：不输出 hidden_states（因为隐藏蒸馏关闭）
+                # Student forward pass (no hidden states since hidden distillation is off)
                 student_out = student_model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
@@ -159,10 +159,10 @@ class FedSDTrainer(BaseFederatedTrainer):
                     output_hidden_states=False
                 )
 
-                # 交叉熵（直接用 HF 内置 loss，已忽略 -100）
+                # Cross-entropy loss (using HF built-in loss, ignores -100 labels)
                 loss_ce = student_out.loss
 
-                # KD（仅当有教师且启用 KD）
+                # Knowledge distillation (only when teacher exists and KD enabled)
                 loss_kl = 0.0
                 if use_kd and teacher_model is not None:
                     with torch.no_grad():
@@ -173,7 +173,7 @@ class FedSDTrainer(BaseFederatedTrainer):
                             output_hidden_states=False
                         )
 
-                    # Token 级 KL + 正确掩码（attention_mask * (labels != -100)）
+                    # Token-level KL divergence with proper masking
                     T = self.temperature
                     s = F.log_softmax(student_out.logits / T, dim=-1)   # [B,L,C]
                     t = F.softmax(teacher_out.logits / T, dim=-1)       # [B,L,C]
@@ -184,7 +184,7 @@ class FedSDTrainer(BaseFederatedTrainer):
                     kl = (kl_per_tok * valid).sum() / denom
                     loss_kl = (T * T) * kl
 
-                # 总损失（隐藏蒸馏关闭）
+                # Total loss (hidden distillation disabled)
                 loss = self.alpha_ce * loss_ce + self.alpha_kl * loss_kl
 
                 optimizer.zero_grad()
@@ -198,10 +198,10 @@ class FedSDTrainer(BaseFederatedTrainer):
 
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
 
-        # 获取最终状态字典
+        # Get final state dictionary
         student_sd = student_model.state_dict()
         
-        # 可选压缩（如启用）
+        # Optional compression if enabled
         original_size = self._estimate_size(student_sd)
         if self.compress_topk > 0:
             print(f"🔍 Applying compression with topk={self.compress_topk}")
@@ -212,37 +212,37 @@ class FedSDTrainer(BaseFederatedTrainer):
                 min_dim=self.compress_min_dim
             )
             compressed_size = self._estimate_size(student_sd)
-            print(f"📊 Compression: {original_size:.2f}MB → {compressed_size:.2f}MB "
+            print(f" Compression: {original_size:.2f}MB → {compressed_size:.2f}MB "
                   f"({compressed_size/original_size*100:.1f}%)")
         else:
-            print(f"🔍 No compression applied (topk={self.compress_topk})")
-            print(f"📊 Model size: {original_size:.2f}MB (uncompressed)")
+            print(f" No compression applied (topk={self.compress_topk})")
+            print(f" Model size: {original_size:.2f}MB (uncompressed)")
 
         return student_sd, len(sampled), avg_loss
 
     def aggregate(self, weights_list):
-        """聚合客户端权重（当前为简单平均；如需 FedAvg 标准可改为按样本数加权）"""
+        """Aggregate client weights (simple averaging; can be changed to sample-weighted for standard FedAvg)."""
         avg = copy.deepcopy(weights_list[0])
         for k in avg:
             for w in weights_list[1:]:
                 avg[k] += w[k]
             avg[k] /= len(weights_list)
 
-        # 上传量估计（未考虑压缩差分的真实体积）
+        # Upload cost estimation (does not consider actual compressed differential size)
         single_model_size = self._estimate_size(avg)
         self.last_uploaded_size_mb = single_model_size * len(weights_list)
         
-        print(f"📊 Single model: {single_model_size:.2f} MB")
-        print(f"📊 Total uploaded: {self.last_uploaded_size_mb:.2f} MB ({len(weights_list)} clients)")
+        print(f" Single model: {single_model_size:.2f} MB")
+        print(f" Total uploaded: {self.last_uploaded_size_mb:.2f} MB ({len(weights_list)} clients)")
         return avg
 
     def _estimate_size(self, state_dict):
         total = sum(p.numel() * p.element_size() for p in state_dict.values())
         return total / (1024 ** 2)
 
-    # 兼容性方法
+    # Compatibility method
     def train_on_client(self, global_model, train_examples):
-        """兼容性方法，调用 train_local_model"""
+        """Compatibility method that calls train_local_model."""
         use_kd = hasattr(self, '_current_round') and self._current_round > 1
         state_dict, num_samples, loss = self.train_local_model(
             global_model, train_examples, use_kd, 
@@ -253,5 +253,5 @@ class FedSDTrainer(BaseFederatedTrainer):
         return model.cpu()
     
     def set_current_round(self, round_idx):
-        """设置当前轮次（用于兼容性）"""
+        """Set current round index for compatibility."""
         self._current_round = round_idx

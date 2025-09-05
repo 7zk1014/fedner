@@ -64,13 +64,13 @@ def multi_label_dirichlet_routing_partition(sentences, num_clients, alpha=0.1, s
     random.seed(seed)
     np.random.seed(seed)
 
-    # 1. 为每个标签生成 Dirichlet 分布概率向量
+    # Generate Dirichlet distribution probability vectors for each label
     all_labels = sorted({lab[2:] for s in sentences for lab in s["labels"] if lab != "O"})
     label2client_probs = {
         l: np.random.dirichlet([alpha] * num_clients) for l in all_labels
     }
 
-    # 2. 遍历每个句子，根据其标签决定客户端归属
+    # Traverse each sentence and determine client assignment based on its labels
     client_sent_ids = {i: [] for i in range(num_clients)}
     for idx, s in enumerate(sentences):
         labels = [lab[2:] for lab in s["labels"] if lab != "O"]
@@ -103,32 +103,32 @@ def load_and_split_pubtator(
     docs = load_pubtator(pubtator_path)
     pmid_map = {d["pmid"]: d for d in docs}
 
-    # 读取各阶段文档
+    # Read documents from each phase
     train_docs = [pmid_map[p] for p in read_pmids(trng_pmids_path) if p in pmid_map]
     dev_docs   = [pmid_map[p] for p in read_pmids(dev_pmids_path)   if p in pmid_map]
     test_docs  = [pmid_map[p] for p in read_pmids(test_pmids_path)  if p in pmid_map]
 
-    # 转成句子
+    # Convert to sentences
     train_sents = docs_to_sentences(train_docs)
     dev_sents   = docs_to_sentences(dev_docs)
     test_sents  = docs_to_sentences(test_docs)
 
-    # 根据策略分配训练集
+    # Partition training set according to strategy
     if partition_strategy == "iid":
-        # 训练集 IID 划分
+        # IID partitioning for training set
         idxs = list(range(len(train_sents)))
         random.seed(seed); random.shuffle(idxs)
         parts = [idxs[i::num_clients] for i in range(num_clients)]
         client_train = {i: [train_sents[j] for j in parts[i]] for i in range(num_clients)}
 
-        # 验证集 IID 划分
+        # IID partitioning for validation set
         idxs_dev = list(range(len(dev_sents)))
         random.seed(seed)
         random.shuffle(idxs_dev)
         parts_dev = [idxs_dev[i::num_clients] for i in range(num_clients)]
         client_dev = {i: [dev_sents[j] for j in parts_dev[i]] for i in range(num_clients)}
 
-        # 测试集 IID 划分
+        # IID partitioning for test set
         idxs_test = list(range(len(test_sents)))
         random.seed(seed)
         random.shuffle(idxs_test)
@@ -136,15 +136,14 @@ def load_and_split_pubtator(
         client_test = {i: [test_sents[j] for j in parts_test[i]] for i in range(num_clients)}
 
     elif partition_strategy == "noniid":
-        # 训练集非 IID
+        # Non-IID training set
         client_train = multi_label_dirichlet_routing_partition(train_sents, num_clients, alpha, seed)
-        # 验证集、测试集也用同样的 Dirichlet 分配
+        # Validation and test sets also use the same Dirichlet allocation
         client_dev   = multi_label_dirichlet_routing_partition(dev_sents,   num_clients, alpha, seed)
         client_test  = multi_label_dirichlet_routing_partition(test_sents,  num_clients, alpha, seed)
     else:
         raise ValueError(f"Unknown partition strategy: {partition_strategy}")
 
-    # 转成 list of lists
     client_train_sents = [client_train[i] for i in range(num_clients)]
     client_dev_sents   = [client_dev[i]   for i in range(num_clients)]
     client_test_sents  = [client_test[i]  for i in range(num_clients)]

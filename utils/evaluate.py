@@ -4,30 +4,30 @@ from torch.utils.data import DataLoader
 from seqeval.metrics import f1_score, precision_score, recall_score
 
 # -----------------------------
-# 标准化与过滤
+# Normalization and filtering
 # -----------------------------
 def _normalize_examples(examples):
     """
-    将评估输入标准化为“可索引的样本序列”或 HF Dataset：
-      - 支持 List[dict] / List[List[dict]] / Dict[Any, dict] / Dict[Any, List[dict]]
-      - 对嵌套结构自动展平
-      - 对 datasets.Dataset 原样返回
+    Normalize evaluation input to "indexable sample sequences" or HF Dataset:
+      - Supports List[dict] / List[List[dict]] / Dict[Any, dict] / Dict[Any, List[dict]]
+      - Automatically flattens nested structures
+      - Returns datasets.Dataset as-is
     """
     if examples is None:
         return []
 
-    # HF Dataset：直接返回
+    # HF Dataset: return directly
     try:
-        import datasets  # 可选依赖
+        import datasets  # optional dependency
         if isinstance(examples, datasets.Dataset):
             return examples
     except Exception:
         pass
 
-    # dict -> 取 values
+    # dict -> extract values
     if isinstance(examples, dict):
         vals = list(examples.values())
-        # Dict[key, List[dict]] 情况：展平
+        # Dict[key, List[dict]] case: flatten
         if len(vals) > 0 and isinstance(vals[0], list):
             flat = []
             for v in vals:
@@ -35,20 +35,20 @@ def _normalize_examples(examples):
             return flat
         return vals  # Dict[Any, dict]
 
-    # List[List[dict]] -> 展平
+    # List[List[dict]] -> flatten
     if isinstance(examples, list) and len(examples) > 0 and isinstance(examples[0], list):
         flat = []
         for sub in examples:
             flat.extend(sub)
         return flat
 
-    return examples  # 已是 List[dict] 或空列表
+    return examples  # Already List[dict] or empty list
 
 
 def _only_sentence_dicts(items):
     """
-    只保留形如 {'tokens': [...], 'labels': [...]} 的句子字典。
-    其余类型（str/int/不含关键键的 dict 等）全部忽略。
+    Only keep sentence dictionaries of the form {'tokens': [...], 'labels': [...]}.
+    Ignore all other types (str/int/dict without key fields, etc.).
     """
     out = []
     for x in items or []:
@@ -58,16 +58,16 @@ def _only_sentence_dicts(items):
 
 
 # -----------------------------
-# 单条样本：tokenize + 标签对齐
+# Single sample: tokenize + label alignment
 # -----------------------------
 def align_labels_with_tokens(tokenizer, tokens, labels, label2id, max_length=128, pad_to_max=True):
     """
-    将 word-level 标签对齐到 tokenizer 的 subword 序列上。
-    返回包含 input_ids/attention_mask/labels 的 dict（张量形状为 [1, L]）。
-    需要 fast tokenizer（支持 .word_ids）
+    Align word-level labels to tokenizer's subword sequences.
+    Returns dict containing input_ids/attention_mask/labels (tensor shape [1, L]).
+    Requires fast tokenizer (supports .word_ids).
     """
     if "O" not in label2id:
-        raise ValueError("label2id 必须包含 'O'。")
+        raise ValueError("label2id must contain 'O'.")
 
     enc = tokenizer(
         tokens,
@@ -78,8 +78,8 @@ def align_labels_with_tokens(tokenizer, tokens, labels, label2id, max_length=128
         return_tensors="pt",
     )
 
-    # 对齐标签
-    word_ids = enc.word_ids(batch_index=0)  # fast tokenizer
+    # Align labels
+    word_ids = enc.word_ids(batch_index=0)  # Requires fast tokenizer
     aligned = []
     for wi in word_ids:
         if wi is None:
@@ -87,7 +87,7 @@ def align_labels_with_tokens(tokenizer, tokens, labels, label2id, max_length=128
         else:
             lab = labels[wi]
             if lab not in label2id:
-                raise KeyError(f"未知标签：{lab}")
+                raise KeyError(f"Unknown label: {lab}")
             aligned.append(label2id[lab])
 
     enc["labels"] = torch.tensor([aligned], dtype=torch.long)
@@ -95,23 +95,23 @@ def align_labels_with_tokens(tokenizer, tokens, labels, label2id, max_length=128
 
 
 # -----------------------------
-# 构建评估 DataLoader（可复用）
+# Build evaluation DataLoader (reusable)
 # -----------------------------
 def build_eval_dataloader(test_examples, tokenizer, label_list, batch_size=32, max_length=128,
                           num_workers=0, pin_memory=False):
     """
-    test_examples: List[{'tokens': [...], 'labels': [...]}] 或兼容结构
+    test_examples: List[{'tokens': [...], 'labels': [...]}] or compatible structure
     """
     test_examples = _normalize_examples(test_examples)
     test_examples = _only_sentence_dicts(test_examples)
 
-    # 空数据：返回空 DataLoader，后续 evaluate_model 会得到 0 指标
+    # Empty data: return empty DataLoader, evaluate_model will get 0 metrics
     if not test_examples:
         return DataLoader([], batch_size=batch_size)
 
     label2id = {l: i for i, l in enumerate(label_list)}
     if "O" not in label2id:
-        raise ValueError("label_list 必须包含 'O'。")
+        raise ValueError("label_list must contain 'O'.")
 
     def collate_fn(batch):
         tokens_batch = [ex["tokens"] for ex in batch]
@@ -136,7 +136,7 @@ def build_eval_dataloader(test_examples, tokenizer, label_list, batch_size=32, m
                 else:
                     lab = lab_seq[wi]
                     if lab not in label2id:
-                        raise KeyError(f"未知标签：{lab}")
+                        raise KeyError(f"Unknown label: {lab}")
                     lab_ids.append(label2id[lab])
             aligned_labels.append(lab_ids)
 
@@ -153,13 +153,13 @@ def build_eval_dataloader(test_examples, tokenizer, label_list, batch_size=32, m
 
 
 # -----------------------------
-# 轻量级评估
+# Lightweight evaluation
 # -----------------------------
 def evaluate_model(model, tokenizer, test_examples, label_list,
                    device="cuda", batch_size=32, max_length=128, num_workers=0):
     """
-    避免 Trainer 开销的轻量级评估。
-    空数据直接返回 0 指标；使用 -100 掩码忽略 padding 标签。
+    Lightweight evaluation avoiding Trainer overhead.
+    Empty data returns 0 metrics; uses -100 mask to ignore padding labels.
     """
     test_examples = _normalize_examples(test_examples)
     test_examples = _only_sentence_dicts(test_examples)
@@ -177,7 +177,7 @@ def evaluate_model(model, tokenizer, test_examples, label_list,
         num_workers=num_workers, pin_memory=pin
     )
 
-    # 空 DataLoader 情况
+    # Empty DataLoader case
     if dataloader is None:
         return {"f1": 0.0, "precision": 0.0, "recall": 0.0}
 
@@ -185,7 +185,7 @@ def evaluate_model(model, tokenizer, test_examples, label_list,
 
     with torch.no_grad():
         for batch in dataloader:
-            if len(batch) == 0:  # 防御式判断
+            if len(batch) == 0:  # Defensive check
                 continue
             input_ids = batch["input_ids"].to(device, non_blocking=pin)
             attention_mask = batch["attention_mask"].to(device, non_blocking=pin)
@@ -195,7 +195,7 @@ def evaluate_model(model, tokenizer, test_examples, label_list,
             logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
             predictions = torch.argmax(logits, dim=-1)
 
-            # 还原真实/预测序列（忽略 -100 的位置）
+            # Reconstruct true/predicted sequences (ignore -100 positions)
             for i in range(labels.size(0)):
                 true_seq, pred_seq = [], []
                 for p, l in zip(predictions[i], labels[i]):

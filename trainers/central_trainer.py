@@ -14,30 +14,26 @@ def centralized_train(
     learning_rate=3e-5,
     scheduler_type="constant",
     batch_size=32,
-    sample_size: int = 200,         # 新增：抽样大小
-    train_last_n_layers: int = 4  # 新增：只训练后 N 层
+    sample_size: int = 200,
+    train_last_n_layers: int = 4
 ):
-    # 1) 抽样
     if sample_size is not None and sample_size < len(train_examples):
         train_examples = random.sample(train_examples, sample_size)
 
-    # 2) 冻结参数
     if train_last_n_layers is not None:
-        # 假设你用的是 Bert-like 模型，encoder 有 12 层
-        # 只让最后 N 层和分类头可训练，其他全部 freeze
+        # Freeze layers for BERT-like models with 12 encoder layers
+        # Only train last N layers and classification head, freeze all others
         total_layers = len(model.bert.encoder.layer)  # e.g. 12
         trainable_layers = set(range(total_layers - train_last_n_layers, total_layers))
         for name, param in model.named_parameters():
-            # Bert encoder 层名称一般形如 bert.encoder.layer.{i}.*
+            # BERT encoder layer names follow pattern: bert.encoder.layer.{i}.*
             if name.startswith("bert.encoder.layer"):
                 layer_num = int(name.split(".")[3])
                 if layer_num not in trainable_layers:
                     param.requires_grad = False
-            # 保证分类头可训练（名称可能是 classifier、head、tag_classifier 等）
+            # Ensure classification head is trainable (name might be classifier, head, tag_classifier etc)
             elif not name.startswith("classifier") and "classifier" in name:
-                # 这里要根据你的实际 head 模块名称来写
                 param.requires_grad = False
-            # 其它参数默认保持原样
 
     label2id = {label: i for i, label in enumerate(label_list)}
 

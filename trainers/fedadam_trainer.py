@@ -19,16 +19,16 @@ class FedAdamTrainer(BaseFederatedTrainer):
         learning_rate=5e-5,
         scheduler_type="constant",
         batch_size=32,
-        # FedAdam 超参
+        # FedAdam hyperparameters
         server_lr=0.001,
         beta1=0.9,
         beta2=0.99,
         epsilon=1e-8,
-        # 统一训练控制参数
+        # Training control parameters
         train_last_n=4,
-        sample_size=None,                 # ← 新增
-        sample_strategy="random",         # ← 新增
-        max_seq_length=128                # ← 新增
+        sample_size=None,
+        sample_strategy="random",
+        max_seq_length=128
     ):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = int(epochs)
@@ -47,7 +47,7 @@ class FedAdamTrainer(BaseFederatedTrainer):
         self.max_seq_length = int(max_seq_length)
 
         self.label2id = {l: i for i, l in enumerate(label_list)}
-        # 服务器端一阶/二阶矩
+        # Server-side first and second moments for adaptive optimization
         self.momentum = {}
         self.v = {}
 
@@ -75,7 +75,7 @@ class FedAdamTrainer(BaseFederatedTrainer):
 
     # ---------- Local Train on a Single Client ----------
     def train_on_client(self, model, train_examples):
-        # 1) 采样
+        # Sample client data
         sampled_data = sample_client_data(
             data=train_examples,
             sample_size=self.sample_size,
@@ -84,14 +84,14 @@ class FedAdamTrainer(BaseFederatedTrainer):
             seed=None
         )
 
-        # 2) 冻结/解冻层
+        # Freeze model layers (train only last N layers)
         freeze_model_layers(
             model,
             train_last_n_layers=self.train_last_n,
             freeze_embeddings=True
         )
 
-        # 3) 预处理
+        # Preprocess data
         train_dataset = self.preprocess(sampled_data)
         train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
@@ -122,31 +122,31 @@ class FedAdamTrainer(BaseFederatedTrainer):
         client_models = []
         global_weights = global_model.state_dict()
 
-        # 初始化一阶/二阶矩
+        # Initialize first and second moments for FedAdam
         if not self.momentum:
             for name, param in global_model.named_parameters():
                 if param.requires_grad:
                     self.momentum[name] = torch.zeros_like(param.data)
                     self.v[name] = torch.zeros_like(param.data)
 
-        # 客户端本地训练
+        # Local client training
         for data in clients_data:
             model = self.model_init().to(self.device)
             model.load_state_dict(copy.deepcopy(global_weights))
             trained_model = self.train_on_client(model, data)
             client_models.append(copy.deepcopy(trained_model.state_dict()))
 
-        # 计算客户端平均增量 delta
+        # Compute average client gradients (delta)
         new_state = copy.deepcopy(global_weights)
         delta = {}
         for name in new_state:
-            if name in self.momentum:  # 只对需要更新的参数做自适应
+            if name in self.momentum:  # Apply adaptive optimization to trainable parameters
                 client_tensors = [cm[name].to(self.device) for cm in client_models]
                 global_tensor = global_weights[name].to(self.device)
                 stacked = torch.stack([ct - global_tensor for ct in client_tensors])
                 delta[name] = stacked.mean(dim=0)
 
-        # 服务器端 Adam 更新
+        # Server-side Adam update
         with torch.no_grad():
             for name in delta:
                 self.momentum[name] = self.beta1 * self.momentum[name] + (1 - self.beta1) * delta[name]
@@ -156,11 +156,11 @@ class FedAdamTrainer(BaseFederatedTrainer):
 
         global_model.load_state_dict(new_state)
 
-        # 📦 通信量统计（单位 MB）
+        # Communication cost estimation (MB)
         uploaded_bytes = 0
         for name, param in global_weights.items():
             if name in self.momentum:
-                uploaded_bytes += param.numel() * 4  # float32
+                uploaded_bytes += param.numel() * 4  # float32 bytes
         self.last_uploaded_size_mb = uploaded_bytes * len(clients_data) / (1024 ** 2)
 
         return global_model

@@ -19,11 +19,11 @@ class FedAvgTrainer(BaseFederatedTrainer):
         learning_rate=5e-5,
         scheduler_type="constant",
         batch_size=32,
-        # 统一训练控制参数
+        # Training control parameters
         train_last_n=4,
-        sample_size=200,                 # ← 新增：每客户端采样数（None=全量）
-        sample_strategy="random",         # ← 新增：random/balanced/stratified
-        max_seq_length=128                # ← 新增：输入最大长度
+        sample_size=200,  # Number of samples per client (None=use all)
+        sample_strategy="random",  # Sampling strategy
+        max_seq_length=128  # Maximum sequence length
     ):
         super().__init__(model_init, tokenizer, label_list, device)
         self.epochs = int(epochs)
@@ -41,8 +41,8 @@ class FedAvgTrainer(BaseFederatedTrainer):
     # ---------- Data ----------
     def preprocess(self, examples):
         """
-        将 (tokens, labels) 转为 HF Dataset（每条样本包含 input_ids/attention_mask/labels）。
-        使用 fast tokenizer 的 word_ids 对齐标签；padding='max_length'。
+        Convert (tokens, labels) to HuggingFace Dataset format.
+        Uses fast tokenizer's word_ids for label alignment with padding to max_length.
         """
         def _preprocess(example):
             enc = align_labels_with_tokens(
@@ -65,7 +65,7 @@ class FedAvgTrainer(BaseFederatedTrainer):
 
     # ---------- Local Train on a Single Client ----------
     def train_on_client(self, model, train_examples):
-        # 1) 采样客户端数据（与你的统一 sampling 对齐）
+        # Sample client data
         sampled_data = sample_client_data(
             data=train_examples,
             sample_size=self.sample_size,
@@ -74,14 +74,14 @@ class FedAvgTrainer(BaseFederatedTrainer):
             seed=None
         )
 
-        # 2) 冻结/解冻层（与你的统一 freezing 对齐）
+        # Freeze model layers (train only last N layers)
         freeze_model_layers(
             model,
             train_last_n_layers=self.train_last_n,
             freeze_embeddings=True
         )
 
-        # 3) 预处理 -> torch tensor
+        # Preprocess data to torch tensors
         train_dataset = self.preprocess(sampled_data)
         train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
@@ -119,7 +119,7 @@ class FedAvgTrainer(BaseFederatedTrainer):
 
         aggregated_model = self.aggregate(client_models)
 
-        # 📦 统计通信量（单位 MB，按 float32 计）
+        # Communication cost estimation (MB, float32)
         total_uploaded = sum(
             sum(p.nelement() * p.element_size() for p in m.parameters())
             for m in client_models

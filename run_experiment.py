@@ -252,7 +252,7 @@ def run_centralized_training(cfg, tokenizer, label_list, train_sents, test_sents
         learning_rate=cfg.learning_rate,
         scheduler_type=cfg.lr_scheduler_type,
         batch_size=cfg.train_batch_size,
-        train_last_n=cfg.train_last_n_layers, # Ensure centralized training also applies this param
+        train_last_n=cfg.train_last_n_layers,  # Ensure centralized training also applies this param
         max_seq_length=cfg.max_seq_length
     )
     elapsed = log.stop_timer()
@@ -320,7 +320,7 @@ def main():
     alg_specific_group.add_argument("--alpha_kd_end", type=float, help="FedSAD: Final KD loss weight")
     alg_specific_group.add_argument("--kd_start_round", type=int, help="FedSAD: Round to start distillation (1-based)")
     alg_specific_group.add_argument("--teacher_policy", type=str, choices=["ema_first", "cold_then_ema", "prev_global"], help="FedSAD: Teacher policy")
-    alg_specific_group.add_argument("--o_downweight", type=float, help="FedSAD O lable downweight")
+    alg_specific_group.add_argument("--o_downweight", type=float, help="FedSAD O label downweight")
     alg_specific_group.add_argument("--first_ema_m0", type=float, help="FedSAD: First KD round EMA mix with G0 (ema_first)")
     alg_specific_group.add_argument("--ema_m_min", type=float, help="FedSAD: Min EMA momentum after KD starts")
     alg_specific_group.add_argument("--ema_m_max", type=float, help="FedSAD: Max EMA momentum after KD starts")
@@ -354,7 +354,7 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() and cfg.device != "cpu" else "cpu"
     
-    # 🔹 Load data
+    # Load data
     client_train_sents, dev_sents, test_sents = load_and_split_pubtator(
         cfg.pubtator_path,
         cfg.trng_pmids_path,
@@ -365,7 +365,7 @@ def main():
         cfg.noniid_alpha
     )
 
-    # 🔹 Aggregate labels and ensure "O" is included
+    # Aggregate labels and ensure "O" is included
     label_set = set()
     for sent in _iter_sents(client_train_sents):
         label_set.update(sent["labels"])
@@ -379,7 +379,7 @@ def main():
         # A common practice is to place the "Outside" class first
         label_list = ["O"] + [l for l in label_list if l != "O"]
     
-    # 🔹 Load model and tokenizer
+    # Load model and tokenizer
     tokenizer, _ = load_pubmedbert_model(cfg.model_name, label_list)
     model_init = lambda: load_pubmedbert_model(cfg.model_name, label_list)[1]
     

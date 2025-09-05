@@ -1,7 +1,0 @@
-日志文件：logs/run_20250811_010845.log
-
-== iFedAvg ==
-  File "/workspace/fedner/run_experiment.py", line 292
-    cfg.model_name = args.model_name
-    ^
-IndentationError: expected an indented block after 'if' statement on line 291

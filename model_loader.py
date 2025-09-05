@@ -6,8 +6,8 @@ from transformers import AutoTokenizer, AutoModelForTokenClassification
 
 def _local_model_ready(model_dir: Path):
     """
-    判断本地模型目录是否“可直接加载”（文件齐全）。
-    返回: (ok, missing_files, has_weights)
+    Check if local model directory is "directly loadable" (complete files).
+    Returns: (ok, missing_files, has_weights)
     """
     must = ["config.json", "tokenizer_config.json", "special_tokens_map.json"]
     has_weights = (model_dir / "pytorch_model.bin").exists() or (model_dir / "model.safetensors").exists()
@@ -18,38 +18,37 @@ def _local_model_ready(model_dir: Path):
 
 def load_pubmedbert_model(model_name_or_path, label_list):
     """
-    加载 PubMedBERT（若传入本地目录且文件齐全 -> 用本地；否则回退到 HuggingFace Hub）
+    Load PubMedBERT (if passed local directory and files complete -> use local; otherwise fallback to HuggingFace Hub)
     """
     if "O" not in label_list:
-        raise ValueError("label_list 必须包含 'O'。")
+        raise ValueError("label_list must contain 'O'.")
 
-    # 规范化路径并检测是否可用本地
     resolved = Path(os.path.expanduser(model_name_or_path)).resolve()
     is_dir = resolved.is_dir()
     use_local = False
-    model_source = model_name_or_path  # 默认认为是 Hub 名称
+    model_source = model_name_or_path
 
     if is_dir:
         ok, missing, has_w = _local_model_ready(resolved)
         if ok:
             use_local = True
             model_source = str(resolved)
-            print(f"📁 从本地加载模型: {model_source}")
+            print(f" Loading model from local: {model_source}")
         else:
             print(
-                "⚠️ 本地目录存在但文件不完整，将回退到 HuggingFace Hub：\n"
-                f"   目录: {resolved}\n"
-                f"   缺少: {missing} | 有权重: {has_w}"
+                " Local directory exists but files incomplete, falling back to HuggingFace Hub:\n"
+                f"   Directory: {resolved}\n"
+                f"   Missing: {missing} | Has weights: {has_w}"
             )
-            print(f"🌐 从 HuggingFace Hub 加载模型: {model_name_or_path}")
+            print(f" Loading model from HuggingFace Hub: {model_name_or_path}")
     else:
-        print(f"🌐 从 HuggingFace Hub 加载模型: {model_name_or_path}")
+        print(f" Loading model from HuggingFace Hub: {model_name_or_path}")
 
-    # 必须使用 fast tokenizer 才有 .word_ids()
+    # Must use fast tokenizer to have .word_ids()
     tokenizer = AutoTokenizer.from_pretrained(
         model_source,
         use_fast=True,
-        local_files_only=use_local  # 本地加载时禁止联网；回退 Hub 时允许联网
+        local_files_only=use_local  # Disable network when loading locally; allow network when falling back to Hub
     )
 
     num_labels = len(label_list)
@@ -60,27 +59,27 @@ def load_pubmedbert_model(model_name_or_path, label_list):
         local_files_only=use_local
     )
 
-    # 配置标签映射，确保评估/训练一致
+    # Configure label mapping to ensure evaluation/training consistency
     id2label = {i: l for i, l in enumerate(label_list)}
     model.config.id2label = id2label
     model.config.label2id = {l: i for i, l in id2label.items()}
 
-    # FedKD 会用到
+    # FedKD will use this
     model.config.output_hidden_states = True
-    # 若需要注意力： model.config.output_attentions = True
+    # If attention needed: model.config.output_attentions = True
 
     return tokenizer, model
 
 
 def check_model_availability(model_name_or_path):
     """
-    返回 True 表示可用（本地可用或可从网络访问）。
+    Return True means available (locally available or accessible from network).
     """
     resolved = Path(os.path.expanduser(model_name_or_path)).resolve()
     if resolved.is_dir():
         ok, _, _ = _local_model_ready(resolved)
         return ok
-    # 远端一律视为可用（是否能联网由运行环境决定）
+    # Remote models are always considered available (network connectivity depends on runtime environment)
     return True
 
 

@@ -111,18 +111,18 @@ PYTHONUNBUFFERED=1 python run_experiment.py \
 #   --partition_strategy noniid --noniid_alpha 0.01 \
 #   --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --temperature_start 2 --temperature_end 2 --alpha_ce_start 1 --alpha_ce_end  1 --alpha_kd_start 1 --alpha_kd_end 1 --teacher_policy 'prev_global' --train_layers 8
   
-# echo "== FedSAD 0.01== "
-# PYTHONUNBUFFERED=1 python run_experiment.py \
-#   --alg FedSAD \
-#   --partition_strategy noniid --noniid_alpha 0.01 \
-#   --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers 8
+echo "== FedSAD 0.01== "
+PYTHONUNBUFFERED=1 python run_experiment.py \
+  --alg FedSAD \
+  --partition_strategy noniid --noniid_alpha 0.01 \
+  --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers 8
 
   
-# echo "== niFedAvg 0.01  12layers=="
-# PYTHONUNBUFFERED=1 python run_experiment.py \
-#   --alg FedAvg \
-#   --partition_strategy noniid --noniid_alpha 0.01 \
-#   --num_clients 10 --local_epochs 2 --rounds 50 --train_last_n_layers=12 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
+echo "== niFedAvg 0.01  12layers=="
+PYTHONUNBUFFERED=1 python run_experiment.py \
+  --alg FedAvg \
+  --partition_strategy noniid --noniid_alpha 0.01 \
+  --num_clients 10 --local_epochs 2 --rounds 50 --train_last_n_layers=12 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract
 
 # echo "== niFedAvg 0.01  alldata=="
 # PYTHONUNBUFFERED=1 python run_experiment.py \
@@ -183,11 +183,11 @@ PYTHONUNBUFFERED=1 python run_experiment.py \
 
 
 
-# echo "== FedSD 0.01=="
-# PYTHONUNBUFFERED=1 python run_experiment.py \
-#   --alg FedSD \
-#   --partition_strategy noniid --noniid_alpha 0.01 \
-#   --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers -1
+echo "== FedSD 0.01=="
+PYTHONUNBUFFERED=1 python run_experiment.py \
+  --alg FedSD \
+  --partition_strategy noniid --noniid_alpha 0.01 \
+  --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract 
 
 # echo "== FedSD 0.01=="
 # PYTHONUNBUFFERED=1 python run_experiment.py \
@@ -251,11 +251,11 @@ PYTHONUNBUFFERED=1 python run_experiment.py \
 #   --partition_strategy noniid --noniid_alpha 0.01 \
 #   --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers 8
   
-# echo "== FedAdam 0.01=="
-# PYTHONUNBUFFERED=1 python run_experiment.py \
-#   --alg FedAdam \
-#   --partition_strategy noniid --noniid_alpha 0.01 \
-#   --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers 8
+echo "== FedAdam 0.01=="
+PYTHONUNBUFFERED=1 python run_experiment.py \
+  --alg FedAdam \
+  --partition_strategy noniid --noniid_alpha 0.01 \
+  --num_clients 10 --local_epochs 2 --rounds 100 --model_name ./models/microsoft_BiomedNLP-PubMedBERT-base-uncased-abstract --train_layers 8
 
 # echo "== FedProx 0.01=="
 # PYTHONUNBUFFERED=1 python run_experiment.py \
