@@ -160,6 +160,9 @@ def run_federated_training(cfg, tokenizer, label_list, clients_data, dev_sents, 
             "compress_gradients": cfg.compress_gradients,
             "compress_topk": cfg.compress_topk,
             "compress_min_dim": cfg.compress_min_dim,
+            "first_ema_m0": cfg.first_ema_m0,
+            "ema_m_min": cfg.ema_m_min,
+            "ema_m_max": cfg.ema_m_max,
         })
         trainer = FedSADTrainer(**trainer_kwargs)
 
@@ -318,11 +321,14 @@ def main():
     alg_specific_group.add_argument("--kd_start_round", type=int, help="FedSAD: Round to start distillation (1-based)")
     alg_specific_group.add_argument("--teacher_policy", type=str, choices=["ema_first", "cold_then_ema", "prev_global"], help="FedSAD: Teacher policy")
     alg_specific_group.add_argument("--o_downweight", type=float, help="FedSAD O lable downweight")
+    alg_specific_group.add_argument("--first_ema_m0", type=float, help="FedSAD: First KD round EMA mix with G0 (ema_first)")
+    alg_specific_group.add_argument("--ema_m_min", type=float, help="FedSAD: Min EMA momentum after KD starts")
+    alg_specific_group.add_argument("--ema_m_max", type=float, help="FedSAD: Max EMA momentum after KD starts")
     # FedSD specific parameters
     alg_specific_group.add_argument("--fedsd_alpha_ce", type=float, help="FedSD: Cross-entropy loss weight")
     alg_specific_group.add_argument("--fedsd_alpha_kl", type=float, help="FedSD: KL divergence loss weight")
     alg_specific_group.add_argument("--fedsd_temperature", type=float, help="FedSD: Distillation temperature")
-
+    
     args = parser.parse_args()
     
     # Load config and apply command-line overrides

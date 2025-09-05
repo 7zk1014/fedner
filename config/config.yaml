@@ -56,7 +56,7 @@ fedavg: {}
 # FedProx 专属超参
 # -----------------------
 fedprox:
-  mu: 0.01                      # Proximal项权重
+  mu: 0.5                      # Proximal项权重
 
 # -----------------------
 # FedAdam 专属超参
